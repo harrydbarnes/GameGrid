@@ -36,6 +36,11 @@ jobs:
           python build_catalog_v2.py
           mv data.js ../data.js
           mv catalog-report.json ../catalog-report.json
+      - name: Add free IGDB cover artwork
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: python scripts/enrich_covers.py
       - name: Validate catalogue and every puzzle intersection
         run: python scripts/validate_catalog.py
       - name: Configure Pages
