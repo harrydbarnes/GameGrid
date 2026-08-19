@@ -29,8 +29,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build 6,000-game catalogue and daily puzzles
-        run: python scripts/build_catalog.py
+      - name: Build catalogue, modes and quality-scored puzzles
+        working-directory: .
+        run: |
+          cd scripts
+          python build_catalog_v2.py
+          mv data.js ../data.js
+          mv catalog-report.json ../catalog-report.json
       - name: Validate catalogue and every puzzle intersection
         run: python scripts/validate_catalog.py
       - name: Configure Pages
