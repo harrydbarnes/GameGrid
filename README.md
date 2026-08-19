@@ -10,11 +10,24 @@ Pick a square and choose a video game that matches both the row and column clues
 
 The GitHub Pages workflow builds the production data before every deployment. `scripts/build_catalog.py` downloads the open PlayMyData research dataset (IGDB-derived), normalises and deduplicates it, then produces a browser-friendly catalogue capped at 6,000 games.
 
-The generator defines 40–60 data-driven clue types across platforms, release eras, genres, ratings and title properties. It also creates daily Classic puzzles from 17 August through 31 December 2026.
+The generator defines 40–60 data-driven clue types across platforms, release eras, genres, ratings and title properties. Mode-aware generation creates Classic, Retro, Nintendo, PlayStation, Xbox and Deep Cut daily puzzles through 31 December 2026.
 
-Every generated puzzle is validated before deployment. Each of its nine intersections must have at least three valid answers in the deployed catalogue. The generated `catalog-report.json` records catalogue size, clue counts, schedule range and clue coverage for auditing.
+Every generated puzzle is validated before deployment. Each of its nine intersections must have multiple valid answers in the deployed catalogue. The generated `catalog-report.json` records catalogue size, clue counts, schedule range and clue coverage for auditing.
 
 The small `data.js` committed to the repository is a fallback for local/offline development. The GitHub Actions build replaces it with the generated production catalogue in the Pages deployment artifact.
+
+## Real game artwork (free)
+
+GameGrid can enrich the production catalogue with real cover artwork from IGDB at build time. IGDB is free for non-commercial use and requires a free Twitch developer application.
+
+1. Sign in/create a Twitch account and enable two-factor authentication.
+2. Register a confidential application in the Twitch Developer Console. IGDB's documentation says `localhost` can be used as the OAuth redirect URL.
+3. Generate a client secret.
+4. In this GitHub repository, open **Settings → Secrets and variables → Actions**.
+5. Add repository secrets named `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET`.
+6. Re-run **Deploy GameGrid to Pages** from the Actions tab, or push a commit to `main`.
+
+`scripts/enrich_covers.py` uses those secrets only inside GitHub Actions, retrieves IGDB cover image IDs for the generated catalogue, and adds public IGDB Image CDN URLs to the deployed data. The credentials are never included in the GitHub Pages JavaScript. If the secrets are absent, deployment still succeeds and the existing letter-art fallback is used.
 
 ## Local development
 
@@ -24,25 +37,17 @@ Serve the repository with any static web server:
 python -m http.server 8000
 ```
 
-For the full production-sized dataset, run:
-
-```bash
-python scripts/build_catalog.py
-python scripts/validate_catalog.py
-python -m http.server 8000
-```
-
-The build step requires internet access because it retrieves the upstream research CSVs.
+For the full production-sized dataset, run the generator/validator scripts before starting the server. The production build requires internet access because it retrieves upstream data.
 
 ## Deployment
 
-Pushes to `main`, manual workflow dispatches and the weekly scheduled build trigger `.github/workflows/pages.yml`. The workflow generates the catalogue, validates it, uploads the static artifact and deploys through GitHub Pages.
+Pushes to `main`, manual workflow dispatches and the weekly scheduled build trigger `.github/workflows/pages.yml`. The workflow generates the catalogue, optionally enriches it with IGDB artwork, validates it, uploads the static artifact and deploys through GitHub Pages.
 
 No Netlify/Vercel/other web host is used.
 
 ## Rarity
 
-Global rarity is deliberately not faked. GitHub Pages has no writable database, so this build reports local stats and is structured so a legitimate remote aggregate source can be connected later.
+GameGrid currently uses an explicitly labelled estimated obscurity score within each square's valid answer pool. It does not represent that score as live player usage. True community rarity would require a writable aggregate data source because GitHub Pages itself is static.
 
 ## Data source
 
