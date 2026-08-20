@@ -47,7 +47,9 @@ No Netlify/Vercel/other web host is used.
 
 ## Rarity
 
-GameGrid currently uses an explicitly labelled estimated obscurity score within each square's valid answer pool. It does not represent that score as live player usage. True community rarity would require a writable aggregate data source because GitHub Pages itself is static.
+GameGrid uses a static **catalogue-rarity** score within each square's valid answer pool. It ranks games by the source dataset's review/poll participation count, using the game rating only as a small tie-breaker; lower percentile scores are less documented in that catalogue and therefore score better. It is not a measure of how often GameGrid players guessed a title.
+
+This is intentionally server-free: the score is recalculated deterministically from the deployed data, so all players see the same result for the same puzzle. Games without a source participation count are shown as **catalogue rank unavailable**, rather than misleadingly assigning them the tied midpoint (50); they incur the standard 100-point unranked penalty in a completed grid. True community rarity would require a writable aggregate data source.
 
 ## Data source
 

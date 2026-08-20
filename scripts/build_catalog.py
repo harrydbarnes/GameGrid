@@ -17,7 +17,7 @@ END=dt.date(2026,12,31)
 ALIASES={
 'id':['id','game_id'],'title':['name','title'],'date':['first_release_date','release_date','released','date'],
 'platforms':['platforms','platform_names'],'genres':['genres','genre_names'],'developers':['involved_companies','developers','developer'],
-'publishers':['publishers','publisher'],'rating':['rating','total_rating'],'ratings_count':['rating_count','total_rating_count','ratings_count']}
+'publishers':['publishers','publisher'],'rating':['rating','total_rating'],'ratings_count':['rating_count','total_rating_count','ratings_count','review_count'],'people_polled':['people_polled']}
 
 # The research snapshot is IGDB-derived but is not live: its latest records can
 # lag recent releases.  These are deliberately limited to major, released games
@@ -127,7 +127,11 @@ def build_games():
             genres=parse_any(pick(row,'genres'))
             devs=parse_any(pick(row,'developers'))
             pubs=parse_any(pick(row,'publishers'))
-            r=num(pick(row,'rating')); rc=num(pick(row,'ratings_count'))
+            r=num(pick(row,'rating'))
+            # The source names its two participation signals review_count and
+            # people_polled.  Either may be present, so retain the stronger
+            # observed count as the static catalogue-popularity proxy.
+            rc=max(num(pick(row,'ratings_count')),num(pick(row,'people_polled')))
             g=merged.get(key)
             if not g:g={'id':key,'title':title,'year':yr,'platforms':[],'developers':[],'publishers':[],'tags':[],'franchise':'','rating':round(r,1),'ratingsCount':int(rc)}
             g['platforms']=list(dict.fromkeys(g['platforms']+plats));g['tags']=list(dict.fromkeys(g['tags']+genres));g['developers']=list(dict.fromkeys(g['developers']+devs));g['publishers']=list(dict.fromkeys(g['publishers']+pubs));g['rating']=max(g['rating'],round(r,1));g['ratingsCount']=max(g['ratingsCount'],int(rc));merged[key]=g

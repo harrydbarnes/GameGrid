@@ -35,4 +35,28 @@
       }
     };
   }
+
+  // app.js owns answer validation, but its viewport-level toast sits beneath an
+  // open modal. Mirror invalid-answer feedback into the active search dialog,
+  // immediately below the text field, where it remains readable on desktop and
+  // mobile bottom-sheet layouts.
+  const searchDialog=$('#searchDialog'),searchBox=searchDialog?.querySelector('.search-box'),searchInput=$('#gameSearch'),toast=$('#toast');
+  if(searchDialog&&searchBox&&toast){
+    const feedback=document.createElement('p');
+    feedback.className='search-feedback';feedback.hidden=true;feedback.setAttribute('role','alert');
+    searchBox.insertAdjacentElement('afterend',feedback);
+    const feedbackStyle=document.createElement('style');
+    feedbackStyle.textContent='.search-feedback{margin:9px 2px 0;color:var(--bad);font-size:13px;font-weight:750;line-height:1.35}';
+    document.head.append(feedbackStyle);
+    const clearFeedback=()=>{feedback.hidden=true;feedback.textContent=''};
+    const mirrorInvalidAnswer=()=>{
+      const message=toast.textContent||'';
+      if(searchDialog.open&&toast.classList.contains('show')&&/doesn't match both clues/.test(message)){
+        feedback.textContent=message;feedback.hidden=false;toast.classList.remove('show');
+      }
+    };
+    new MutationObserver(mirrorInvalidAnswer).observe(toast,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
+    searchInput?.addEventListener('input',clearFeedback);
+    searchDialog.addEventListener('close',clearFeedback);
+  }
 })();
