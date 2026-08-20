@@ -3,15 +3,21 @@
   const {clues,puzzles}=DATA,$=s=>document.querySelector(s);
   const articleRule='Articles are treated as part of the official title unless this criterion explicitly says otherwise.';
   const rangeLetters={lettera:'A, B, C, D, E or F',letterg:'G, H, I, J, K or L',letterm:'M, N, O, P, Q or R',letters:'S, T, U, V, W, X, Y or Z'};
-  const platformCopy={pc:'The game must have an official PC release.',playstation:'The game must have appeared on a PlayStation-family platform.',xbox:'The game must have appeared on an Xbox-family platform.',nintendo:'The game must have appeared on a Nintendo platform.',switch:'The game must have an official Nintendo Switch release.',switch2:'The game must have an official Nintendo Switch 2 release.',ps5:'The game must have an official PlayStation 5 release.',ps4:'The game must have an official PlayStation 4 release.',ps3:'The game must have an official PlayStation 3 release.',ps2:'The game must have an official PlayStation 2 release.',ps1:'The game must have an official original PlayStation release.',xseries:'The game must have an official Xbox Series X|S release.',xone:'The game must have an official Xbox One release.',x360:'The game must have an official Xbox 360 release.',xboxoriginal:'The game must have an official original Xbox release.',wiiu:'The game must have an official Wii U release.',wii:'The game must have an official Wii release.',gamecube:'The game must have an official GameCube release.',n64:'The game must have an official Nintendo 64 release.',snes:'The game must have an official SNES release.',nes:'The game must have an official NES release.',gba:'The game must have an official Game Boy Advance release.',gbc:'The game must have an official Game Boy Color release.',gb:'The game must have an official Game Boy release.',ds:'The game must have an official Nintendo DS release.',3ds:'The game must have an official Nintendo 3DS release.',dreamcast:'The game must have an official Dreamcast release.',megadrive:'The game must have an official Mega Drive / Genesis release.'};
+  const platformCopy={pc:'The game must have an official PC release.',playstation:'The game must have appeared on a PlayStation-family platform.',xbox:'The game must have appeared on an Xbox-family platform.',nintendo:'The game must have appeared on a Nintendo platform.',switch:'The game must have an official Nintendo Switch release.',switch2:'The game must have an official Nintendo Switch 2 release.',ps5:'The game must have an official PlayStation 5 release.',ps4:'The game must have an official PlayStation 4 release.',ps3:'The game must have an official PlayStation 3 release.',ps2:'The game must have an official PlayStation 2 release.',ps1:'The game must have an official original PlayStation release.',xseries:'The game must have an official Xbox Series X|S release.',xone:'The game must have an official Xbox One release.',x360:'The game must have an official Xbox 360 release.',xboxoriginal:'The game must have an official original Xbox release.',wiiu:'The game must have an official Wii U release.',wii:'The game must have an official Wii release.',gamecube:'The game must have an official GameCube release.',n64:'The game must have an official Nintendo 64 release.',snes:'The game must have an official SNES release.',nes:'The game must have an official NES release.',gba:'The game must have an official Game Boy Advance release.',gbc:'The game must have an official Game Boy Color release.',gb:'The game must have an official Game Boy release.',ds:'The game must have an official Nintendo DS release.','3ds':'The game must have an official Nintendo 3DS release.',dreamcast:'The game must have an official Dreamcast release.',megadrive:'The game must have an official Mega Drive / Genesis release.'};
   const genreCopy={rpg:'The game must be classified as a role-playing game (RPG).',shooter:'The game must be classified as a shooter.',strategy:'The game must be classified as strategy.',racing:'The game must be classified as racing.',sport:'The game must be classified as sports.',fighting:'The game must be classified as fighting.',platformer:'The game must be classified as a platformer.',puzzle:'The game must be classified as puzzle.',adventure:'The game must be classified as adventure.',simulation:'The game must be classified as simulation.',indie:'The game must be classified as indie.',arcade:'The game must be classified as arcade.'};
 
   const onboardingKey='gamegrid-onboarding-v3';
+  // A coach mark should reveal the product, not replace it with a dark modal.
+  // These overrides are injected after the legacy stylesheet so the tour keeps
+  // the active page visible and leaves the highlighted control interactive.
+  const onboardingStyle=document.createElement('style');
+  onboardingStyle.textContent=`.gamegrid-onboarding{background:transparent;backdrop-filter:none;pointer-events:none;align-items:end;justify-items:end;padding:clamp(18px,3vw,42px)}.gamegrid-onboarding-card{pointer-events:auto;width:min(100%,430px);background:var(--surface);color:var(--text);border:1px solid var(--line);box-shadow:0 18px 50px rgba(25,25,25,.16)}html[data-theme=dark] .gamegrid-onboarding-card{box-shadow:0 18px 50px rgba(0,0,0,.38)}.gamegrid-onboarding-skip,.gamegrid-onboarding-back{color:var(--muted);border-color:var(--line)}.gamegrid-onboarding-progress span{background:var(--line)}.gamegrid-onboarding-progress span.active{background:var(--accent)}.gamegrid-onboarding-eyebrow{color:var(--accent)}.gamegrid-onboarding-body{color:var(--muted)}.onboarding-clue-highlight{position:relative;z-index:10001!important;outline:3px solid var(--accent);outline-offset:4px;box-shadow:0 10px 28px color-mix(in srgb,var(--accent) 28%,transparent);animation:gamegrid-onboarding-ring 1.4s ease-in-out infinite}@keyframes gamegrid-onboarding-ring{0%,100%{outline-offset:4px;box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 22%,transparent)}50%{outline-offset:7px;box-shadow:0 12px 32px color-mix(in srgb,var(--accent) 38%,transparent)}}@media(max-width:640px){.gamegrid-onboarding{align-items:end;padding:12px}.gamegrid-onboarding-card{width:100%;border-radius:22px 22px 16px 16px}}`;
+  document.head.appendChild(onboardingStyle);
   const forceOnboarding=new URLSearchParams(location.search).get('onboarding')==='1';
   const onboardingSteps=[
-    {eyebrow:'WELCOME TO GAMEGRID',title:'Fill the grid. Find the rare gems.',body:'Pick a game that matches both the row and column criteria. Every square has an answer, but the less obvious picks are where the fun is.'},
-    {eyebrow:'QUICK TIP',title:'Need help with the criteria?',body:'Tap or click any row or column criterion to see exactly what it means, including title rules, year ranges and other clarifications.',highlight:true},
-    {eyebrow:'YOU’RE READY',title:'Go for the rarest grid you can.',body:'Complete the grid, compare your answers with the best and most obvious picks, then share your score. Lower scores are better. Have fun!'}
+    {eyebrow:'WELCOME TO GAMEGRID',title:'One grid. Nine great answers.',body:'Choose any +, then name a game that matches both its row and column clues. Every square has more than one valid answer.'},
+    {eyebrow:'TRY THE LIVE CLUES',title:'Criteria explain themselves.',body:'Select a highlighted row or column label to see exactly what counts. The grid stays live while you explore.',highlight:true},
+    {eyebrow:'MAKE THE GRID YOURS',title:'The less obvious, the better.',body:'Complete the grid, compare your answers with the most obvious and rarest picks, then share your score. Lower scores are better.'}
   ];
 
   function currentPuzzle(){const mode=document.querySelector('.mode-tab.active')?.dataset.mode||'Classic',id=Number((($('#puzzleTitle')?.textContent||'').match(/#(\d+)/)||[])[1]);return puzzles.find(p=>p.id===id&&p.mode===mode)||puzzles.find(p=>p.id===id)||null}
@@ -25,21 +31,16 @@
   document.addEventListener('click',e=>{const node=e.target.closest?.('#grid .clue:not(.corner)');if(!node)return;if(showForNode(node)){e.preventDefault();e.stopPropagation()}},true);
   document.addEventListener('keydown',e=>{if(!['Enter',' '].includes(e.key))return;const node=e.target.closest?.('#grid .clue:not(.corner)');if(!node)return;if(showForNode(node))e.preventDefault()});
 
-  // Native dialog backdrops are part of the dialog element rather than a child node.
-  // Close criterion help only when the pointer lands outside the visible card bounds.
+  // Native dialog backdrops are not consistently exposed as a child event
+  // target. Use viewport coordinates at capture time so a click anywhere
+  // outside the visible criterion card closes it reliably.
   const infoDialog=$('#infoDialog');
-  infoDialog?.addEventListener('pointerdown',e=>{
-    if(infoDialog.dataset.criterionHelp!=='1'||!infoDialog.open)return;
+  document.addEventListener('pointerdown',e=>{
+    if(!infoDialog||infoDialog.dataset.criterionHelp!=='1'||!infoDialog.open)return;
     const r=infoDialog.getBoundingClientRect();
     const outside=e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom;
     if(outside){e.preventDefault();infoDialog.close()}
-  });
-  infoDialog?.addEventListener('click',e=>{
-    if(infoDialog.dataset.criterionHelp==='1'&&e.target===infoDialog){
-      const r=infoDialog.getBoundingClientRect();
-      if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)infoDialog.close();
-    }
-  });
+  },true);
   infoDialog?.addEventListener('close',()=>delete infoDialog.dataset.criterionHelp);
 
   function hasSeen(){if(forceOnboarding)return false;try{return localStorage.getItem(onboardingKey)==='1'}catch{return false}}

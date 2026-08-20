@@ -1,5 +1,6 @@
 (() => {
   const DATA=window.GAMEGRID_DATA;if(!DATA)return;
+  const $=s=>document.querySelector(s);
   const {puzzles}=DATA;
   const mode=document.querySelector('.mode-tab.active')?.dataset.mode||localStorage.getItem('gamegrid:mode')||'Classic';
   const id=Number((($('#puzzleTitle')?.textContent||'').match(/#(\d+)/)||[])[1]);
