@@ -22,6 +22,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,7 +34,7 @@ jobs:
         working-directory: .
         run: |
           cd scripts
-          python build_catalog_v2.py
+          python build_catalog_v3.py
           mv data.js ../data.js
           mv catalog-report.json ../catalog-report.json
       - name: Add free IGDB cover artwork
