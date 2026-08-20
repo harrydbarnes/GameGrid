@@ -27,6 +27,11 @@ ALIASES={
 # its own rating when available, while an absent record must not gain invented
 # rating-based puzzle eligibility or an artificial rarity rank.
 ESSENTIAL_GAMES=[
+ ('Gears of War',2006,['Xbox 360','PC'],['Epic Games'],['Microsoft Game Studios'],['Shooter','Adventure'],84,9000),
+ ('BioShock',2007,['PC','Xbox 360','PlayStation 3'],['Irrational Games'],['2K'],['Shooter','Adventure'],88,11000),
+ ('Mass Effect',2007,['Xbox 360','PC','PlayStation 3'],['BioWare'],['EA'],['Role-playing (RPG)','Adventure'],86,10000),
+ ('Grand Theft Auto IV',2008,['PlayStation 3','Xbox 360','PC'],['Rockstar North'],['Rockstar Games'],['Adventure','Action'],92,18000),
+ ('Demon’s Souls',2009,['PlayStation 3'],['FromSoftware'],['Sony Computer Entertainment'],['Role-playing (RPG)','Adventure'],89,8000),
  ('Death Stranding',2019,['PlayStation 4','PC'],['Kojima Productions'],['Sony Interactive Entertainment'],['Adventure','Action'],85,18000),
  ('Cyberpunk 2077',2020,['PC','PlayStation 4','PlayStation 5','Xbox One','Xbox Series'],['CD Projekt Red'],['CD Projekt'],['Role-playing (RPG)','Adventure'],76,30000),
  ('Ghost of Tsushima',2020,['PlayStation 4','PlayStation 5','PC'],['Sucker Punch Productions'],['Sony Interactive Entertainment'],['Adventure','Action'],83,15000),
