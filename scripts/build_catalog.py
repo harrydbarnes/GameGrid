@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import ast,csv,datetime as dt,hashlib,io,json,random,re,sys,urllib.request
+import ast,csv,datetime as dt,hashlib,io,json,math,random,re,sys,urllib.request
 
 SOURCES=[
 ('Nintendo','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_Nintendo.csv'),
@@ -97,7 +97,9 @@ def year_of(v):
     return 0
 
 def num(v):
-    try:return float(v)
+    try:
+        n=float(v)
+        return n if math.isfinite(n) else 0.0
     except:return 0.0
 
 def norm_platform(p):
