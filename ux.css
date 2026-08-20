@@ -1,0 +1,16 @@
+/* UX overrides kept separate so the future Easy mode can re-enable search metadata without rewriting app.js. */
+html[data-search-hints="off"] .search-results .result small{display:none}
+#challengeShareBtn{display:none!important}
+.share-head-btn{width:52px;height:52px;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:14px;display:grid;place-items:center;cursor:pointer;box-shadow:var(--shadow)}
+.share-head-btn:hover{border-color:var(--accent);color:var(--accent)}
+.share-head-btn svg{width:23px;height:23px;fill:currentColor}
+.game-status{grid-template-columns:repeat(3,1fr)!important;text-align:center}
+.game-status>div{align-items:center!important}
+.game-status>div+div{border-left:1px solid var(--line);padding-left:16px}
+.confirm-dialog{width:min(430px,calc(100vw - 30px));padding:0;overflow:hidden}
+.confirm-body{padding:26px}
+.confirm-body h2{font-size:28px;margin:3px 0 8px;letter-spacing:-.8px}
+.confirm-body p{color:var(--muted);line-height:1.5;margin:0 0 24px}
+.confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.danger-btn{border:1px solid var(--bad);background:var(--bad);color:#fff;border-radius:12px;padding:13px 16px;font:inherit;font-weight:800;cursor:pointer}
+@media(max-width:620px){.share-head-btn{width:42px;height:42px;border-radius:11px}.share-head-btn svg{width:20px;height:20px}.game-status{grid-template-columns:repeat(3,1fr)!important}.game-status>div+div{padding-left:8px}.game-status strong{font-size:18px!important}.game-status .muted{font-size:10px}.confirm-actions{grid-template-columns:1fr}}
