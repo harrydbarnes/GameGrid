@@ -37,6 +37,60 @@ def clue_pool(mode,counts):
     return specs
 
 
+def clue_family(spec):
+    kind=spec.get('kind','')
+    if kind=='platform': return 'platform'
+    if kind=='yearRange': return 'release'
+    if kind=='genre': return 'genre'
+    if kind=='rating': return 'rating'
+    if kind.startswith('title'): return 'title'
+    return kind or 'other'
+
+
+def family_signature(specs):
+    return tuple(sorted(clue_family(s) for s in specs))
+
+
+def variety_ok(rows,cols,mode):
+    six=list(rows)+list(cols)
+    fams=[clue_family(s) for s in six]
+    counts={f:fams.count(f) for f in set(fams)}
+    # Every grid should mix at least three kinds of knowledge rather than becoming
+    # six versions of years/platforms/etc. The themed modes may use three platform
+    # criteria, but no family may dominate a standard grid with four or more.
+    min_families=3
+    max_one_family=3 if mode in {'Nintendo','PlayStation','Xbox'} else 2
+    if len(counts)<min_families:return False
+    if max(counts.values())>max_one_family:return False
+    # Each axis must itself contain some variety. This prevents, for example,
+    # three release decades across the top crossed with three consoles down the side.
+    if len({clue_family(s) for s in rows})<2:return False
+    if len({clue_family(s) for s in cols})<2:return False
+    return True
+
+
+def schedule_ok(specs,recent_puzzles):
+    ids={s['id'] for s in specs}
+    sig=family_signature(specs)
+    # The six criteria are the puzzle's identity. Sharing 4/6 would be 66.7%, so
+    # cap all of the previous seven scheduled grids at three shared criteria (50%).
+    for age,p in enumerate(reversed(recent_puzzles[-7:]),start=1):
+        previous=set(p['rows']+p['cols'])
+        if len(ids & previous)>3:return False
+        # Do not repeat the exact same family recipe on consecutive/nearby days.
+        if age<=3 and sig==tuple(p.get('familySignature',())):return False
+    return True
+
+
+def repetition_penalty(specs,recent_puzzles):
+    """Softly favour criteria that have not appeared much in the last fortnight."""
+    if not recent_puzzles:return 0
+    freq={}
+    for p in recent_puzzles[-14:]:
+        for cid in p['rows']+p['cols']:freq[cid]=freq.get(cid,0)+1
+    return sum(freq.get(s['id'],0) for s in specs)*1.8
+
+
 def bounds(mode,relaxed=False):
     if mode=='Deep Cut': return (3,80 if relaxed else 45)
     if mode in {'Nintendo','PlayStation','Xbox','Retro'}: return (3 if relaxed else 4,320 if relaxed else 180)
@@ -66,13 +120,16 @@ def pair_lookup(pair_sets,a,b):
     return pair_sets.get(tuple(sorted((a,b))),set())
 
 
-def structurally_ok(rows,cols):
+def structurally_ok(rows,cols,mode):
     if len({x['id'] for x in rows+cols})<6:return False
+    if not variety_ok(rows,cols,mode):return False
     return not any(r['kind']==c['kind'] and r['value']==c['value'] for r in rows for c in cols)
 
 
-def evaluate(rows,cols,pair_sets,mode,relaxed=False,allow_reuse=False):
-    if not structurally_ok(rows,cols):return None
+def evaluate(rows,cols,pair_sets,mode,recent_puzzles,relaxed=False,allow_reuse=False):
+    six=list(rows)+list(cols)
+    if not structurally_ok(rows,cols,mode):return None
+    if not schedule_ok(six,recent_puzzles):return None
     cells=[pair_lookup(pair_sets,r['id'],c['id']) for r in rows for c in cols]
     ints=[len(x) for x in cells]
     q=quality(ints,mode,relaxed)
@@ -86,93 +143,88 @@ def evaluate(rows,cols,pair_sets,mode,relaxed=False,allow_reuse=False):
             for gid in cell:
                 frequency[gid]=frequency.get(gid,0)+1
                 if frequency[gid]>3:return None
+    q+=repetition_penalty(six,recent_puzzles)
     return q,ints,distinct
 
 
-def random_search(mode,recent,pool,pair_sets,rng,relaxed=False):
+def random_search(mode,recent_puzzles,pool,pair_sets,rng,relaxed=False):
     best=None
-    attempts=2200 if not relaxed else 3500
+    attempts=3500 if not relaxed else 5500
     for _ in range(attempts):
         six=rng.sample(pool,6);rows=six[:3];cols=six[3:]
-        if tuple(x['id'] for x in six) in recent:continue
-        ev=evaluate(rows,cols,pair_sets,mode,relaxed=relaxed,allow_reuse=relaxed)
+        ev=evaluate(rows,cols,pair_sets,mode,recent_puzzles,relaxed=relaxed,allow_reuse=relaxed)
         if not ev:continue
         q,ints,distinct=ev
         if best is None or q<best[0]:best=(q,rows,cols,ints,distinct,'relaxed-random' if relaxed else 'quality-random')
-        if q<(15 if relaxed else 8):break
+        if q<(18 if relaxed else 10):break
     return best
 
 
-def deterministic_search(mode,pool,pair_sets):
-    """Find a valid K3,3 clue arrangement deterministically.
-    This guarantees we do not fail merely because RNG missed an existing valid grid.
-    """
-    low,high=bounds(mode,True)
-    target=18 if mode=='Deep Cut' else 45
-    # Precompute valid neighbours for every clue under relaxed but still playable bounds.
-    neighbours={s['id']:[] for s in pool}
-    by_id={s['id']:s for s in pool}
+def deterministic_search(mode,pool,pair_sets,recent_puzzles):
+    """Find a scheduled-valid K3,3 arrangement deterministically if RNG misses one."""
+    low,high=bounds(mode,True);target=18 if mode=='Deep Cut' else 45
+    neighbours={s['id']:[] for s in pool};by_id={s['id']:s for s in pool}
     for a,b in itertools.combinations(pool,2):
         n=len(pair_lookup(pair_sets,a['id'],b['id']))
         if low<=n<=high:
             neighbours[a['id']].append((b['id'],n));neighbours[b['id']].append((a['id'],n))
     row_candidates=sorted(pool,key=lambda s:len(neighbours[s['id']]),reverse=True)
     best=None
-    # Enumerating row triples is small: ~10k at a 40-clue pool.
     for rows in itertools.combinations(row_candidates,3):
-        row_ids={r['id'] for r in rows}
         common=set(x[0] for x in neighbours[rows[0]['id']])
-        common&=set(x[0] for x in neighbours[rows[1]['id']])
-        common&=set(x[0] for x in neighbours[rows[2]['id']])
-        common-=row_ids
+        common&=set(x[0] for x in neighbours[rows[1]['id']]);common&=set(x[0] for x in neighbours[rows[2]['id']]);common-={r['id'] for r in rows}
         cols=[by_id[cid] for cid in common if cid in by_id]
         if len(cols)<3:continue
-        # Prefer columns whose three intersections are near the target, then test a small deterministic shortlist.
-        def col_score(c):
-            vals=[len(pair_lookup(pair_sets,r['id'],c['id'])) for r in rows]
-            return sum(abs(v-target) for v in vals)
-        cols=sorted(cols,key=col_score)[:14]
+        def col_score(c):return sum(abs(len(pair_lookup(pair_sets,r['id'],c['id']))-target) for r in rows)
+        cols=sorted(cols,key=col_score)[:20]
         for chosen in itertools.combinations(cols,3):
-            if not structurally_ok(list(rows),list(chosen)):continue
-            cells=[pair_lookup(pair_sets,r['id'],c['id']) for r in rows for c in chosen]
-            ints=[len(x) for x in cells]
+            six=list(rows)+list(chosen)
+            if not structurally_ok(list(rows),list(chosen),mode) or not schedule_ok(six,recent_puzzles):continue
+            cells=[pair_lookup(pair_sets,r['id'],c['id']) for r in rows for c in chosen];ints=[len(x) for x in cells]
             if min(ints)<3:continue
             distinct=len(set().union(*cells))
             if distinct<9:continue
-            # Final fallback deliberately relaxes duplicate-solution pressure, but never answer validity.
             med=statistics.median(ints);spread=max(ints)-min(ints)
-            q=abs(med-target)+(spread*0.08)+25
+            q=abs(med-target)+(spread*0.08)+25+repetition_penalty(six,recent_puzzles)
             cand=(q,list(rows),list(chosen),ints,distinct,'deterministic-fallback')
             if best is None or q<best[0]:best=cand
-            if q<35:return best
+            if q<42:return best
     return best
 
 
-def build_mode_puzzle(mode,date,pid,recent,pool,pair_sets,rng):
-    best=random_search(mode,recent,pool,pair_sets,rng,False)
-    if not best:best=random_search(mode,recent,pool,pair_sets,rng,True)
-    if not best:best=deterministic_search(mode,pool,pair_sets)
-    if not best:
-        raise RuntimeError(f'No valid 3x3 grid exists for {mode} using the current clue pool; this is a data/clue issue, not random exhaustion')
+def build_mode_puzzle(mode,date,pid,recent_puzzles,pool,pair_sets,rng):
+    best=random_search(mode,recent_puzzles,pool,pair_sets,rng,False)
+    if not best:best=random_search(mode,recent_puzzles,pool,pair_sets,rng,True)
+    if not best:best=deterministic_search(mode,pool,pair_sets,recent_puzzles)
+    if not best:raise RuntimeError(f'No varied, schedule-safe 3x3 grid exists for {mode} on {date}')
     q,rows,cols,ints,distinct,method=best
-    med=statistics.median(ints)
-    difficulty='Hard' if mode=='Deep Cut' or med<18 else ('Easy' if med>70 else 'Medium')
-    return {'id':pid,'date':date.isoformat(),'mode':mode,'scope':mode,'difficulty':difficulty,'rows':[x['id'] for x in rows],'cols':[x['id'] for x in cols],'answerCounts':ints,'solutionPool':distinct,'qualityScore':round(q,2),'generationMethod':method}
+    med=statistics.median(ints);difficulty='Hard' if mode=='Deep Cut' or med<18 else ('Easy' if med>70 else 'Medium')
+    sig=family_signature(rows+cols)
+    previous=recent_puzzles[-1] if recent_puzzles else None
+    shared_previous=len(set([x['id'] for x in rows+cols]) & set(previous['rows']+previous['cols'])) if previous else 0
+    return {'id':pid,'date':date.isoformat(),'mode':mode,'scope':mode,'difficulty':difficulty,'rows':[x['id'] for x in rows],'cols':[x['id'] for x in cols],'answerCounts':ints,'solutionPool':distinct,'qualityScore':round(q,2),'generationMethod':method,'familySignature':list(sig),'sharedWithPrevious':shared_previous}
 
 
 def generate(games):
     all_puzzles=[];report_modes={};pid=1
     for mi,mode in enumerate(MODES):
         scoped_ids,counts,pool,pair_sets=build_index(games,mode)
-        print(f'Generating {mode}: {len(scoped_ids)} scoped games, {len(pool)} usable clues')
-        rng=random.Random(260817+mi*997);recent=[];d=START;mode_ps=[]
+        print(f'Generating {mode}: {len(scoped_ids)} scoped games, {len(pool)} usable criteria')
+        rng=random.Random(260817+mi*997);d=START;mode_ps=[]
         while d<=END:
-            p=build_mode_puzzle(mode,d,pid,recent,pool,pair_sets,rng);pid+=1
-            mode_ps.append(p);recent=(recent+[tuple(p['rows']+p['cols'])])[-45:];d+=dt.timedelta(days=1)
+            p=build_mode_puzzle(mode,d,pid,mode_ps,pool,pair_sets,rng);pid+=1
+            mode_ps.append(p);d+=dt.timedelta(days=1)
+        # Schedule assertions: neighbouring grids may overlap, but never by more than 3/6 criteria.
+        for i,p in enumerate(mode_ps):
+            for prev in mode_ps[max(0,i-7):i]:
+                shared=len(set(p['rows']+p['cols']) & set(prev['rows']+prev['cols']))
+                if shared>3:raise RuntimeError(f'{mode} schedule repetition: {p["date"]} shares {shared}/6 criteria with {prev["date"]}')
+            if len(set(p['familySignature']))<3:raise RuntimeError(f'{mode} variety failure on {p["date"]}')
         all_puzzles+=mode_ps
         medians=[statistics.median(p['answerCounts']) for p in mode_ps]
         methods={m:sum(p['generationMethod']==m for p in mode_ps) for m in {'quality-random','relaxed-random','deterministic-fallback'}}
-        report_modes[mode]={'puzzles':len(mode_ps),'scopedGames':len(scoped_ids),'usableClues':len(pool),'medianAnswersPerSquare':round(statistics.median(medians),1),'minAnswers':min(min(p['answerCounts']) for p in mode_ps),'maxAnswers':max(max(p['answerCounts']) for p in mode_ps),'generationMethods':methods}
+        shares=[p['sharedWithPrevious'] for p in mode_ps[1:]]
+        report_modes[mode]={'puzzles':len(mode_ps),'scopedGames':len(scoped_ids),'usableCriteria':len(pool),'medianAnswersPerSquare':round(statistics.median(medians),1),'minAnswers':min(min(p['answerCounts']) for p in mode_ps),'maxAnswers':max(max(p['answerCounts']) for p in mode_ps),'generationMethods':methods,'maxAdjacentSharedCriteria':max(shares) if shares else 0,'avgAdjacentSharedCriteria':round(statistics.mean(shares),2) if shares else 0}
     all_puzzles.sort(key=lambda p:(p['date'],MODES.index(p['mode'])))
     return all_puzzles,report_modes
 
@@ -184,7 +236,7 @@ def main():
     clue_counts={s['id']:sum(base.match(g,s) for g in games) for s in base.CLUE_SPECS}
     out="window.GAMEGRID_DATA=(()=>{\nconst games="+json.dumps(games,separators=(',',':'),ensure_ascii=False)+";\n"+base.js_clues()+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:{gameCount:games.length,clueCount:clueSpecs.length,puzzleCount:puzzles.length,modes:"+json.dumps(MODES)+",source:'PlayMyData (IGDB-derived)',generated:new Date().toISOString()}};\n})();\n"
     open('data.js','w',encoding='utf-8').write(out)
-    report={'games':len(games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts}
+    report={'games':len(games),'criteria':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'criterionCounts':clue_counts}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 
