@@ -6,7 +6,8 @@
   const rangeLetters={lettera:'A, B, C, D, E or F',letterg:'G, H, I, J, K or L',letterm:'M, N, O, P, Q or R',letters:'S, T, U, V, W, X, Y or Z'};
   const platformCopy={pc:'The game must have an official PC release.',playstation:'The game must have appeared on a PlayStation-family platform.',xbox:'The game must have appeared on an Xbox-family platform.',nintendo:'The game must have appeared on a Nintendo platform.',switch:'The game must have an official Nintendo Switch release.',switch2:'The game must have an official Nintendo Switch 2 release.',ps5:'The game must have an official PlayStation 5 release.',ps4:'The game must have an official PlayStation 4 release.',ps3:'The game must have an official PlayStation 3 release.',ps2:'The game must have an official PlayStation 2 release.',ps1:'The game must have an official original PlayStation release.',xseries:'The game must have an official Xbox Series X|S release.',xone:'The game must have an official Xbox One release.',x360:'The game must have an official Xbox 360 release.',xboxoriginal:'The game must have an official original Xbox release.',wiiu:'The game must have an official Wii U release.',wii:'The game must have an official Wii release.',gamecube:'The game must have an official GameCube release.',n64:'The game must have an official Nintendo 64 release.',snes:'The game must have an official SNES release.',nes:'The game must have an official NES release.',gba:'The game must have an official Game Boy Advance release.',gbc:'The game must have an official Game Boy Color release.',gb:'The game must have an official Game Boy release.',ds:'The game must have an official Nintendo DS release.',3ds:'The game must have an official Nintendo 3DS release.',dreamcast:'The game must have an official Dreamcast release.',megadrive:'The game must have an official Mega Drive / Genesis release.'};
   const genreCopy={rpg:'The game must be classified as a role-playing game (RPG).',shooter:'The game must be classified as a shooter.',strategy:'The game must be classified as strategy.',racing:'The game must be classified as racing.',sport:'The game must be classified as sports.',fighting:'The game must be classified as fighting.',platformer:'The game must be classified as a platformer.',puzzle:'The game must be classified as puzzle.',adventure:'The game must be classified as adventure.',simulation:'The game must be classified as simulation.',indie:'The game must be classified as indie.',arcade:'The game must be classified as arcade.'};
-  const onboardingKey='gamegrid-onboarding-v1';
+  const onboardingKey='gamegrid-onboarding-v2';
+  const forceOnboarding=new URLSearchParams(location.search).get('onboarding')==='1';
   const onboardingSteps=[
     {eyebrow:'WELCOME TO GAMEGRID',title:'Fill the grid. Find the rare gems.',body:'Pick a game that matches both the row and column criteria. Every square has an answer, but the less obvious picks are where the fun is.'},
     {eyebrow:'QUICK TIP',title:'Need help with the criteria?',body:'Tap or click any row or column criterion to see exactly what it means, including title rules, year ranges and other clarifications.',highlight:true},
@@ -36,8 +37,8 @@
   function show(id){const c=clues[id],dialog=$('#infoDialog'),title=$('#infoTitle'),body=$('#infoBody');if(!c||!dialog||!title||!body)return;title.textContent=c.label;body.innerHTML=`<div class="clue-explanation"><span class="eyebrow">CLUE EXPLAINED</span><p>${description(id,c.label)}</p></div>`;if(!dialog.open)dialog.showModal()}
   function decorate(){const grid=$('#grid');if(!grid)return;grid.querySelectorAll('.clue:not(.corner)').forEach(n=>{n.classList.add('clickable-clue');n.setAttribute('role','button');n.setAttribute('tabindex','0');n.title='Tap for explanation'})}
 
-  function hasSeenOnboarding(){try{return localStorage.getItem(onboardingKey)==='1'}catch{return true}}
-  function markOnboardingSeen(){try{localStorage.setItem(onboardingKey,'1')}catch{}}
+  function hasSeenOnboarding(){if(forceOnboarding)return false;try{return localStorage.getItem(onboardingKey)==='1'}catch{return false}}
+  function markOnboardingSeen(){if(forceOnboarding)return;try{localStorage.setItem(onboardingKey,'1')}catch{}}
   function clearOnboardingHighlight(){document.querySelectorAll('.onboarding-clue-highlight').forEach(n=>n.classList.remove('onboarding-clue-highlight'))}
   function highlightCriterion(){clearOnboardingHighlight();const clue=document.querySelector('#grid .clue:not(.corner)');if(clue)clue.classList.add('onboarding-clue-highlight')}
   function startOnboarding(){
@@ -73,9 +74,14 @@
     overlay.addEventListener('keydown',e=>{if(e.key==='Escape')finish()});
     render();
   }
+  function startWhenReady(attempt=0){
+    const gridReady=document.querySelectorAll('#grid .clue:not(.corner)').length>=6;
+    if(gridReady||attempt>=20){startOnboarding();return}
+    setTimeout(()=>startWhenReady(attempt+1),100);
+  }
 
   document.addEventListener('click',e=>{const node=e.target.closest&&e.target.closest('#grid .clue:not(.corner)');if(!node)return;const id=clueIdForNode(node);if(!id)return;e.preventDefault();e.stopPropagation();show(id)},true);
   document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const node=e.target.closest&&e.target.closest('#grid .clue:not(.corner)');if(!node)return;const id=clueIdForNode(node);if(!id)return;e.preventDefault();show(id)});
   new MutationObserver(()=>decorate()).observe(document.body,{subtree:true,childList:true});decorate();
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(startOnboarding,0),{once:true});else setTimeout(startOnboarding,0);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>startWhenReady(),{once:true});else startWhenReady();
 })();
