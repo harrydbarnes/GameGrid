@@ -1,95 +1,16 @@
 (() => {
-  const $ = s => document.querySelector(s);
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-  function currentMode(){
-    const active=document.querySelector('.mode-tab.active');
-    return active?.dataset.mode || active?.textContent?.trim() || 'Classic';
-  }
-  function currentPuzzleId(){
-    const m=($('#puzzleTitle')?.textContent||'').match(/#(\d+)/);
-    return m?m[1]:'';
-  }
-  function puzzleUrl(){
-    const u=new URL(location.href);
-    u.search='';u.hash='';
-    u.searchParams.set('mode',currentMode());
-    u.searchParams.set('puzzle',currentPuzzleId());
-    return u.toString();
-  }
-  async function nativeOrCopy({title,text,url,label='Copied to clipboard'}){
-    try{
-      if(navigator.share){await navigator.share({title,text,url});return;}
-    }catch(e){if(e?.name==='AbortError')return;}
-    const payload=[text,url].filter(Boolean).join('\n\n');
-    try{await navigator.clipboard.writeText(payload);showToast(label)}
-    catch{window.prompt('Copy this link:',payload)}
-  }
-  function showToast(t){
-    const el=$('#toast');if(!el)return;
-    el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800);
-  }
-  function challengeText(){
-    return `Try my GameGrid challenge: ${currentMode()} #${currentPuzzleId()}`;
-  }
-  function resultText(){
-    const mode=currentMode().toUpperCase();
-    const id=currentPuzzleId();
-    const cells=[...document.querySelectorAll('#grid .cell')];
-    let emoji='';
-    cells.forEach((c,i)=>{emoji+=c.classList.contains('solved')?'🟩':'⬛';if(i%3===2)emoji+='\n';});
-    const solved=$('#solvedCount')?.textContent?.trim()||'';
-    const body=$('#infoBody')?.innerText||'';
-    const rarity=(body.match(/([0-9]+(?:\.[0-9]+)?)\s+avg rarity/i)||[])[1];
-    const time=(body.match(/(\d+:\d{2})\s+taken/i)||[])[1];
-    return `🎮 GAMEGRID ${mode} #${id}\n\n${emoji}\n${solved}${rarity?` · Rarity ${rarity}`:''}${time?` · ${time}`:''}\n\nCan you beat mine?`;
-  }
-
-  function addChallengeButton(){
-    const side=document.querySelector('.side-panel');
-    if(!side||$('#challengeShareBtn'))return;
-    const b=document.createElement('button');
-    b.id='challengeShareBtn';b.className='secondary-btn share-action';b.textContent='Share this grid';
-    b.onclick=()=>nativeOrCopy({title:`GameGrid ${currentMode()} #${currentPuzzleId()}`,text:challengeText(),url:puzzleUrl(),label:'Challenge link copied'});
-    side.appendChild(b);
-  }
-
-  function enhanceResults(){
-    const dialog=$('#infoDialog'),body=$('#infoBody');
-    if(!dialog||!body||!dialog.open)return;
-    const title=$('#infoTitle')?.textContent||'';
-    if(!/results/i.test(title))return;
-    if($('#shareResultNativeBtn'))return;
-    const old=$('#shareBtn');
-    if(old){old.textContent=navigator.share?'Share result':'Copy result';old.onclick=()=>nativeOrCopy({title:`GameGrid ${currentMode()} #${currentPuzzleId()} result`,text:resultText(),url:puzzleUrl(),label:'Result copied'});old.id='shareResultNativeBtn';}
-    const challenge=document.createElement('button');
-    challenge.className='secondary-btn share-result-secondary';challenge.textContent='Challenge a friend';
-    challenge.onclick=()=>nativeOrCopy({title:`GameGrid ${currentMode()} #${currentPuzzleId()}`,text:challengeText(),url:puzzleUrl(),label:'Challenge link copied'});
-    body.appendChild(challenge);
-  }
-
-  async function restoreSharedPuzzle(){
-    const params=new URLSearchParams(location.search);
-    const mode=params.get('mode'),puzzle=params.get('puzzle');
-    if(!mode||!puzzle)return;
-    await sleep(80);
-    const modeBtn=[...document.querySelectorAll('.mode-tab')].find(b=>(b.dataset.mode||b.textContent.trim()).toLowerCase()===mode.toLowerCase());
-    if(modeBtn&&!modeBtn.classList.contains('active')){modeBtn.click();await sleep(80);}
-    const title=($('#puzzleTitle')?.textContent||'');
-    if(title.includes(`#${puzzle}`))return;
-    const archiveBtn=document.querySelector('.nav-btn[data-view="archive"]');
-    if(!archiveBtn)return;
-    archiveBtn.click();await sleep(60);
-    const item=document.querySelector(`#archiveList .archive-item[data-id="${CSS.escape(puzzle)}"]`);
-    if(item){item.click();await sleep(50);}
-    else{
-      const todayBtn=document.querySelector('.nav-btn[data-view="today"]');todayBtn?.click();
-      showToast('That shared puzzle is not available in this build');
-    }
-  }
-
-  addChallengeButton();
-  const observer=new MutationObserver(()=>{addChallengeButton();enhanceResults();});
-  observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});
-  restoreSharedPuzzle();
+  const $=s=>document.querySelector(s),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  function currentMode(){const a=document.querySelector('.mode-tab.active');return a?.dataset.mode||a?.textContent?.trim()||'Classic'}
+  function currentPuzzleId(){return ((($('#puzzleTitle')?.textContent||'').match(/#(\d+)/)||[])[1]||'')}
+  function puzzleUrl(){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('mode',currentMode());u.searchParams.set('puzzle',currentPuzzleId());return u.toString()}
+  function toast(t){const e=$('#toast');if(!e)return;e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1800)}
+  async function nativeOrCopy({title,text,url,label='Copied'}){try{if(navigator.share){await navigator.share({title,text,url});return}}catch(e){if(e?.name==='AbortError')return}const payload=[text,url].filter(Boolean).join('\n\n');try{await navigator.clipboard.writeText(payload);toast(label)}catch{window.prompt('Copy this:',payload)}}
+  function state(){try{return JSON.parse(localStorage.getItem(`gamegrid:${currentMode()}:${currentPuzzleId()}`)||'{}')}catch{return {}}}
+  function resultText(detail={}){const s=state(),score=detail.score??s.score,rarity=detail.rarity??s.avgRarity,solved=detail.solved??(s.answers||[]).filter(Boolean).length;let grid='';for(let i=0;i<9;i++){grid+=(s.answers?.[i]?'🟩':'⬛');if(i%3===2)grid+='\n'}const scoreLine=Number.isFinite(score)?`${score} points · lower is better`:'Game complete';const hook=score<=150?'Deep cuts only. Can you go lower?':score<=300?'Think you can find rarer answers?':score<=500?'Can you beat my rarity score?':'Surely you can beat this score…';return `🎮 GAMEGRID ${currentMode().toUpperCase()} #${currentPuzzleId()}\n\n${grid}\n${scoreLine}\n${solved}/9 solved${Number.isFinite(rarity)?` · ${rarity} avg rarity`:''}\n\n${hook}`}
+  function shareResult(detail={}){nativeOrCopy({title:`GameGrid ${currentMode()} #${currentPuzzleId()} · ${detail.score??state().score} points`,text:resultText(detail),url:puzzleUrl(),label:'Result copied'})}
+  $('#topShareBtn')?.addEventListener('click',()=>nativeOrCopy({title:`GameGrid ${currentMode()} #${currentPuzzleId()}`,text:`🎮 Today's GameGrid challenge\n${currentMode()} #${currentPuzzleId()}\n\nNine squares. Nine games. How low can you score?`,url:puzzleUrl(),label:'Challenge link copied'}));
+  window.addEventListener('gamegrid:share-result',e=>shareResult(e.detail||{}));
+  function enhanceResults(){const dialog=$('#infoDialog'),body=$('#infoBody');if(!dialog?.open||!/results/i.test($('#infoTitle')?.textContent||''))return;const old=$('#shareBtn');if(old&&!old.dataset.native){old.dataset.native='1';old.textContent=navigator.share?'Share result':'Copy result';old.onclick=()=>shareResult()}}
+  async function restoreSharedPuzzle(){const q=new URLSearchParams(location.search),mode=q.get('mode'),puzzle=q.get('puzzle');if(!mode||!puzzle)return;await sleep(80);const b=[...document.querySelectorAll('.mode-tab')].find(x=>(x.dataset.mode||x.textContent.trim()).toLowerCase()===mode.toLowerCase());if(b&&!b.classList.contains('active')){b.click();await sleep(80)}if(($('#puzzleTitle')?.textContent||'').includes(`#${puzzle}`))return;document.querySelector('.nav-btn[data-view="archive"]')?.click();await sleep(60);const item=document.querySelector(`#archiveList .archive-item[data-id="${CSS.escape(puzzle)}"]`);if(item)item.click();else{document.querySelector('.nav-btn[data-view="today"]')?.click();toast('That shared puzzle is not available')}}
+  new MutationObserver(enhanceResults).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});restoreSharedPuzzle();
 })();
