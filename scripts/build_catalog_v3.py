@@ -12,31 +12,39 @@ def pair_lookup(pair_sets,a,b):
     return pair_sets.get((a,b) if a<b else (b,a),set())
 
 
-def limits(mode,level):
+def scale_for(scoped_games):
+    # The original limits were calibrated for a 6,000-game catalogue.  Grow
+    # them sub-linearly: a larger index gets broader answer pools without
+    # turning every platform/genre intersection into a trivial catch-all.
+    return max(1.0,(scoped_games/6000)**0.5)
+
+
+def limits(mode,level,scoped_games):
+    scale=scale_for(scoped_games)
     # Each level remains valid, but progressively relaxes puzzle aesthetics so the build never fails just because a random search is unlucky.
     if level==0:
-        if mode=='Deep Cut': return 3,45,18,3
-        if mode in {'Nintendo','PlayStation','Xbox','Retro'}: return 4,180,30,3
-        return 5,300,30,3
+        if mode=='Deep Cut': return 3,round(45*scale),round(18*scale),3
+        if mode in {'Nintendo','PlayStation','Xbox','Retro'}: return 4,round(180*scale),round(30*scale),3
+        return 5,round(300*scale),round(30*scale),3
     if level==1:
-        if mode=='Deep Cut': return 3,70,15,4
-        if mode in {'Nintendo','PlayStation','Xbox','Retro'}: return 3,260,22,4
-        return 3,420,22,4
-    if mode=='Deep Cut': return 3,120,12,6
-    return 3,600,15,6
+        if mode=='Deep Cut': return 3,round(70*scale),round(15*scale),4
+        if mode in {'Nintendo','PlayStation','Xbox','Retro'}: return 3,round(260*scale),round(22*scale),4
+        return 3,round(420*scale),round(22*scale),4
+    if mode=='Deep Cut': return 3,round(120*scale),round(12*scale),6
+    return 3,round(600*scale),round(15*scale),6
 
 
-def score_counts(ints,mode):
-    med=statistics.median(ints);spread=max(ints)-min(ints);target=18 if mode=='Deep Cut' else 45
+def score_counts(ints,mode,scoped_games):
+    med=statistics.median(ints);spread=max(ints)-min(ints);target=(18 if mode=='Deep Cut' else 45)*scale_for(scoped_games)
     return abs(med-target)+(spread*0.08)
 
 
-def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng):
+def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games):
     if len(pool)<6:
         raise RuntimeError(f'{mode} has only {len(pool)} eligible clues; need at least 6')
     best=None
     for level,attempts in enumerate((5000,12000,25000)):
-        low,high,min_distinct,max_reuse=limits(mode,level)
+        low,high,min_distinct,max_reuse=limits(mode,level,scoped_games)
         for _ in range(attempts):
             six=rng.sample(pool,6);rows=six[:3];cols=six[3:];ids=[s['id'] for s in six]
             if tuple(ids) in recent:continue
@@ -54,7 +62,7 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng):
                         bad=True;break
                 if bad:break
             if bad:continue
-            q=score_counts(ints,mode)+(level*100)
+            q=score_counts(ints,mode,scoped_games)+(level*100)
             if best is None or q<best[0]:best=(q,rows,cols,ints,distinct,level)
             if level==0 and q<8:break
         if best:break
@@ -73,7 +81,7 @@ def generate(games):
         print(f'Generating {mode}: {len(scoped_ids)} scoped games, {len(pool)} clues')
         rng=random.Random(260817+mi*997);recent=[];d=START;mode_ps=[]
         while d<=END:
-            p=make_puzzle(mode,d,pid,recent,pool,pair_sets,rng);pid+=1
+            p=make_puzzle(mode,d,pid,recent,pool,pair_sets,rng,len(scoped_ids));pid+=1
             mode_ps.append(p);recent=(recent+[tuple(p['rows']+p['cols'])])[-45:];d+=dt.timedelta(days=1)
         all_puzzles+=mode_ps
         medians=[statistics.median(p['answerCounts']) for p in mode_ps]
@@ -89,7 +97,7 @@ def main():
     clue_counts={s['id']:sum(base.match(g,s) for g in games) for s in base.CLUE_SPECS}
     out="window.GAMEGRID_DATA=(()=>{\nconst games="+json.dumps(games,separators=(',',':'),ensure_ascii=False)+";\n"+base.js_clues()+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:{gameCount:games.length,clueCount:clueSpecs.length,puzzleCount:puzzles.length,modes:"+json.dumps(MODES)+",source:'PlayMyData (IGDB-derived)',generated:new Date().toISOString()}};\n})();\n"
     open('data.js','w',encoding='utf-8').write(out)
-    report={'games':len(games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts}
+    report={'games':len(games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'selection':'all eligible source records (no popularity cap)','essentialBackfill':len(base.ESSENTIAL_GAMES)}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 

@@ -8,13 +8,13 @@ Pick a square and choose a video game that matches both the row and column clues
 
 ## Production data
 
-The GitHub Pages workflow builds the production data before every deployment. `scripts/build_catalog.py` downloads the open PlayMyData research dataset (IGDB-derived), normalises and deduplicates it, then produces a browser-friendly catalogue capped at 6,000 games.
+The GitHub Pages workflow builds the production data before every deployment. `scripts/build_catalog.py` downloads the open PlayMyData research dataset (IGDB-derived), normalises and deduplicates it, and retains every eligible record rather than applying a popularity cut-off. It also backfills a small, reviewed set of major recent releases so the fixed research snapshot cannot omit obvious modern answers.
 
 The generator defines 40–60 data-driven clue types across platforms, release eras, genres, ratings and title properties. Mode-aware generation creates Classic, Retro, Nintendo, PlayStation, Xbox and Deep Cut daily puzzles through 31 December 2026.
 
 Every generated puzzle is validated before deployment. Each of its nine intersections must have multiple valid answers in the deployed catalogue. The generated `catalog-report.json` records catalogue size, clue counts, schedule range and clue coverage for auditing.
 
-The small `data.js` committed to the repository is a fallback for local/offline development. The GitHub Actions build replaces it with the generated production catalogue in the Pages deployment artifact.
+The small `data.js` committed to the repository is a fallback for local/offline development. It includes a representative set of landmark games (including the recent-release spot checks); the GitHub Actions build replaces it with the full generated production catalogue in the Pages deployment artifact.
 
 ## Real game artwork (free)
 
@@ -51,4 +51,4 @@ GameGrid currently uses an explicitly labelled estimated obscurity score within 
 
 ## Data source
 
-Production catalogue generation uses the PlayMyData multi-platform video-game research dataset published on GitHub by Riccardo Rubei et al. The source project describes the dataset as containing 99,864 unique games gathered from IGDB across Nintendo, PC, PlayStation and Xbox ecosystems. GameGrid downloads it only at build time and deploys a substantially smaller normalised index.
+Production catalogue generation uses the PlayMyData multi-platform video-game research dataset published on GitHub by Riccardo Rubei et al. The source project describes the dataset as containing 99,864 unique games gathered from IGDB across Nintendo, PC, PlayStation and Xbox ecosystems. GameGrid downloads it only at build time and deploys the complete eligible, normalised index, plus the documented recent-release backfill.

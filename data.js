@@ -36,6 +36,7 @@ const games = [
 ['smashultimate','Super Smash Bros. Ultimate',2018,['Switch'],['Bandai Namco','Sora'],['Nintendo'],['Fighting','Multiplayer'],'Super Smash Bros.'],
 ['sekiro','Sekiro: Shadows Die Twice',2019,['PlayStation 4','Xbox One','PC'],['FromSoftware'],['Activision'],['Action','Single-player'],''],
 ['control','Control',2019,['PlayStation 4','Xbox One','PC'],['Remedy'],['505 Games'],['Action-adventure','Third-person shooter','Female protagonist'],'Control'],
+['deathstranding','Death Stranding',2019,['PlayStation 4','PC'],['Kojima Productions'],['Sony Interactive Entertainment'],['Action-adventure','Open world','Single-player'],'Death Stranding'],
 ['animalcrossing','Animal Crossing: New Horizons',2020,['Switch'],['Nintendo'],['Nintendo'],['Simulation','Multiplayer'],'Animal Crossing'],
 ['doom eternal','Doom Eternal',2020,['PC','PlayStation 4','Xbox One','Switch'],['id Software'],['Bethesda'],['FPS','Single-player','Multiplayer'],'Doom'],
 ['hades','Hades',2020,['PC','Switch','PlayStation 4','PlayStation 5','Xbox One','Xbox Series'],['Supergiant Games'],['Supergiant Games'],['Action','RPG','Single-player'],'Hades'],

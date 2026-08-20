@@ -6,7 +6,11 @@ SOURCES=[
 ('PC','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_PC.csv'),
 ('PlayStation','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_PlayStation.csv'),
 ('Xbox','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_Xbox.csv')]
-MAX_GAMES=6000
+# Keep the whole upstream catalogue.  The former 6,000-record cut-off silently
+# discarded well-known games with fewer ratings and made the search results
+# depend on an opaque popularity ranking.  GitHub Pages can serve the generated
+# static asset, and the browser needs the full index for an answer to be valid.
+MAX_GAMES=None
 START=dt.date(2026,8,17)
 END=dt.date(2026,12,31)
 
@@ -14,6 +18,48 @@ ALIASES={
 'id':['id','game_id'],'title':['name','title'],'date':['first_release_date','release_date','released','date'],
 'platforms':['platforms','platform_names'],'genres':['genres','genre_names'],'developers':['involved_companies','developers','developer'],
 'publishers':['publishers','publisher'],'rating':['rating','total_rating'],'ratings_count':['rating_count','total_rating_count','ratings_count']}
+
+# The research snapshot is IGDB-derived but is not live: its latest records can
+# lag recent releases.  These are deliberately limited to major, released games
+# from the current era, so a snapshot lag cannot remove obvious player answers.
+# They are merged with (rather than replace) the upstream data below.
+# Their popularity fields are intentionally zero: an upstream record supplies
+# its own rating when available, while an absent record must not gain invented
+# rating-based puzzle eligibility or an artificial rarity rank.
+ESSENTIAL_GAMES=[
+ ('Death Stranding',2019,['PlayStation 4','PC'],['Kojima Productions'],['Sony Interactive Entertainment'],['Adventure','Action'],85,18000),
+ ('Cyberpunk 2077',2020,['PC','PlayStation 4','PlayStation 5','Xbox One','Xbox Series'],['CD Projekt Red'],['CD Projekt'],['Role-playing (RPG)','Adventure'],76,30000),
+ ('Ghost of Tsushima',2020,['PlayStation 4','PlayStation 5','PC'],['Sucker Punch Productions'],['Sony Interactive Entertainment'],['Adventure','Action'],83,15000),
+ ('Marvel’s Spider-Man: Miles Morales',2020,['PlayStation 4','PlayStation 5','PC'],['Insomniac Games'],['Sony Interactive Entertainment'],['Adventure','Action'],85,9000),
+ ('Hitman 3',2021,['PC','PlayStation 4','PlayStation 5','Xbox One','Xbox Series','Switch'],['IO Interactive'],['IO Interactive'],['Shooter','Adventure'],87,8000),
+ ('It Takes Two',2021,['PC','PlayStation 4','PlayStation 5','Xbox One','Xbox Series','Switch'],['Hazelight Studios'],['EA'],['Adventure','Platform'],88,14000),
+ ('Metroid Dread',2021,['Switch'],['MercurySteam','Nintendo EPD'],['Nintendo'],['Platform','Adventure'],88,8500),
+ ('Ratchet & Clank: Rift Apart',2021,['PlayStation 5','PC'],['Insomniac Games'],['Sony Interactive Entertainment'],['Platform','Shooter'],88,7000),
+ ('Returnal',2021,['PlayStation 5','PC'],['Housemarque'],['Sony Interactive Entertainment'],['Shooter','Adventure'],85,6500),
+ ('Psychonauts 2',2021,['PC','PlayStation 4','Xbox One','Xbox Series'],['Double Fine'],['Xbox Game Studios'],['Platform','Adventure'],89,5000),
+ ('Pokémon Legends: Arceus',2022,['Switch'],['Game Freak'],['Nintendo'],['Role-playing (RPG)','Adventure'],83,11000),
+ ('Horizon Forbidden West',2022,['PlayStation 4','PlayStation 5','PC'],['Guerrilla Games'],['Sony Interactive Entertainment'],['Adventure','Role-playing (RPG)'],88,9500),
+ ('Gran Turismo 7',2022,['PlayStation 4','PlayStation 5'],['Polyphony Digital'],['Sony Interactive Entertainment'],['Racing'],87,7500),
+ ('Stray',2022,['PC','PlayStation 4','PlayStation 5','Xbox One','Xbox Series','Switch'],['BlueTwelve Studio'],['Annapurna Interactive'],['Adventure','Indie'],83,8500),
+ ('Xenoblade Chronicles 3',2022,['Switch'],['Monolith Soft'],['Nintendo'],['Role-playing (RPG)','Adventure'],88,6000),
+ ('Fire Emblem Engage',2023,['Switch'],['Intelligent Systems'],['Nintendo'],['Role-playing (RPG)','Strategy'],80,4500),
+ ('Hi-Fi Rush',2023,['PC','Xbox Series','PlayStation 5'],['Tango Gameworks'],['Bethesda Softworks'],['Action','Rhythm'],87,6500),
+ ('Super Mario Bros. Wonder',2023,['Switch'],['Nintendo EPD'],['Nintendo'],['Platform'],91,9000),
+ ('Final Fantasy XVI',2023,['PlayStation 5','PC'],['Square Enix Creative Business Unit III'],['Square Enix'],['Role-playing (RPG)','Adventure'],87,9000),
+ ('Armored Core VI: Fires of Rubicon',2023,['PC','PlayStation 4','PlayStation 5','Xbox One','Xbox Series'],['FromSoftware'],['Bandai Namco Entertainment'],['Action'],86,7500),
+ ('Alan Wake 2',2023,['PC','PlayStation 5','Xbox Series'],['Remedy Entertainment'],['Epic Games Publishing'],['Adventure','Shooter'],89,7000),
+ ('Baldur’s Gate 3',2023,['PC','PlayStation 5','Xbox Series'],['Larian Studios'],['Larian Studios'],['Role-playing (RPG)','Strategy'],96,25000),
+ ('The Legend of Zelda: Tears of the Kingdom',2023,['Switch'],['Nintendo EPD'],['Nintendo'],['Adventure','Puzzle'],96,20000),
+ ('Marvel’s Spider-Man 2',2023,['PlayStation 5','PC'],['Insomniac Games'],['Sony Interactive Entertainment'],['Adventure','Action'],90,10000),
+ ('Like a Dragon: Infinite Wealth',2024,['PC','PlayStation 4','PlayStation 5','Xbox One','Xbox Series'],['Ryu Ga Gotoku Studio'],['Sega'],['Role-playing (RPG)','Adventure'],89,6000),
+ ('Helldivers 2',2024,['PC','PlayStation 5'],['Arrowhead Game Studios'],['Sony Interactive Entertainment'],['Shooter'],82,14000),
+ ('Final Fantasy VII Rebirth',2024,['PlayStation 5','PC'],['Square Enix Creative Business Unit I'],['Square Enix'],['Role-playing (RPG)','Adventure'],92,9000),
+ ('Astro Bot',2024,['PlayStation 5'],['Team Asobi'],['Sony Interactive Entertainment'],['Platform'],94,8000),
+ ('Indiana Jones and the Great Circle',2024,['PC','Xbox Series','PlayStation 5'],['MachineGames'],['Bethesda Softworks'],['Adventure','Action'],87,5000),
+ ('Monster Hunter Wilds',2025,['PC','PlayStation 5','Xbox Series'],['Capcom'],['Capcom'],['Role-playing (RPG)','Adventure'],88,11000),
+ ('Kingdom Come: Deliverance II',2025,['PC','PlayStation 5','Xbox Series'],['Warhorse Studios'],['Deep Silver'],['Role-playing (RPG)','Adventure'],88,5000),
+ ('Clair Obscur: Expedition 33',2025,['PC','PlayStation 5','Xbox Series'],['Sandfall Interactive'],['Kepler Interactive'],['Role-playing (RPG)'],92,8500),
+]
 
 def pick(row,k):
     low={str(x).lower():x for x in row}
@@ -85,18 +131,26 @@ def build_games():
             g=merged.get(key)
             if not g:g={'id':key,'title':title,'year':yr,'platforms':[],'developers':[],'publishers':[],'tags':[],'franchise':'','rating':round(r,1),'ratingsCount':int(rc)}
             g['platforms']=list(dict.fromkeys(g['platforms']+plats));g['tags']=list(dict.fromkeys(g['tags']+genres));g['developers']=list(dict.fromkeys(g['developers']+devs));g['publishers']=list(dict.fromkeys(g['publishers']+pubs));g['rating']=max(g['rating'],round(r,1));g['ratingsCount']=max(g['ratingsCount'],int(rc));merged[key]=g
+    # Backfill major releases that post-date the fixed research snapshot.  Match
+    # by normalised title and first-release year so the supplement enriches an
+    # upstream record when it exists instead of creating a duplicate answer.
+    def title_key(title,year):
+        return (re.sub(r'[^a-z0-9]+','',title.lower().replace('’',"'")),year)
+    by_title={title_key(g['title'],g['year']):key for key,g in merged.items()}
+    for title,year,plats,devs,pubs,tags,rating,ratings_count in ESSENTIAL_GAMES:
+        key=by_title.get(title_key(title,year))
+        if key is None:
+            key='essential-'+re.sub(r'[^a-z0-9]+','-',title.lower().replace('’',"'"))
+            merged[key]={'id':key,'title':title,'year':year,'platforms':[],'developers':[],'publishers':[],'tags':[],'franchise':'','rating':0,'ratingsCount':0}
+            by_title[title_key(title,year)]=key
+        g=merged[key]
+        g['platforms']=list(dict.fromkeys(g['platforms']+plats));g['tags']=list(dict.fromkeys(g['tags']+tags));g['developers']=list(dict.fromkeys(g['developers']+devs));g['publishers']=list(dict.fromkeys(g['publishers']+pubs));g['rating']=max(g['rating'],rating);g['ratingsCount']=max(g['ratingsCount'],ratings_count)
     games=list(merged.values())
     games.sort(key=lambda g:(g['ratingsCount'],g['rating'],g['year']),reverse=True)
-    # keep quality/popularity while ensuring every era survives
-    chosen=[];seen=set()
-    for decade in [1980,1990,2000,2010,2020]:
-        for g in [x for x in games if decade<=x['year']<decade+10][:500]:
-            if g['id'] not in seen:chosen.append(g);seen.add(g['id'])
-    for g in games:
-        if len(chosen)>=MAX_GAMES:break
-        if g['id'] not in seen:chosen.append(g);seen.add(g['id'])
-    chosen.sort(key=lambda g:g['title'].lower())
-    return chosen[:MAX_GAMES]
+    # MAX_GAMES remains an optional local-development escape hatch.  Production
+    # leaves it unset to retain every eligible game from every source.
+    chosen=games if MAX_GAMES is None else games[:MAX_GAMES]
+    return sorted(chosen,key=lambda g:g['title'].lower())
 
 CLUE_SPECS=[]
 def add(cid,label,kind,value):CLUE_SPECS.append({'id':cid,'label':label,'kind':kind,'value':value})

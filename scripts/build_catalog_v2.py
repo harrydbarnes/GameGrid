@@ -17,8 +17,13 @@ def scope_ok(g,mode):
     return True
 
 
-def clue_pool(mode,counts):
-    specs=[s for s in base.CLUE_SPECS if 20<=counts.get(s['id'],0)<=5000]
+def clue_pool(mode,counts,scoped_games=None):
+    # A criterion should not be rejected solely because the source catalogue
+    # grew.  The former fixed 5,000 ceiling was appropriate for a 6,000-game
+    # sample but removed normal platform/genre clues from the complete index.
+    scoped=scoped_games if scoped_games is not None else max(counts.values(),default=0)
+    ceiling=max(5000,int(scoped*.95))
+    specs=[s for s in base.CLUE_SPECS if 20<=counts.get(s['id'],0)<=ceiling]
     if mode=='Classic': return specs
     if mode=='Retro':
         excluded={'y2020s','post2015','switch2','ps5','ps4','xseries','xone'}
@@ -109,7 +114,7 @@ def build_index(games,mode):
     scoped_ids={i for i,g in enumerate(games) if scope_ok(g,mode)}
     clue_sets={spec['id']:{i for i in scoped_ids if base.match(games[i],spec)} for spec in base.CLUE_SPECS}
     counts={cid:len(ids) for cid,ids in clue_sets.items()}
-    pool=clue_pool(mode,counts)
+    pool=clue_pool(mode,counts,len(scoped_ids))
     pair_sets={}
     for a,b in itertools.combinations(pool,2):
         pair_sets[tuple(sorted((a['id'],b['id'])))]=clue_sets[a['id']] & clue_sets[b['id']]
