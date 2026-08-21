@@ -282,7 +282,8 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usag
         raise RuntimeError(f'{mode} has only {len(pool)} eligible clues; need at least 6')
     buckets=trial_buckets(pool) if mode=='Trial' else family_buckets(pool)
     best=None
-    for level,attempts in enumerate((5000,12000,25000)):
+    attempts_by_mode=(250,750,2000) if mode=='Trial' else (5000,12000,25000)
+    for level,attempts in enumerate(attempts_by_mode):
         low,high,min_distinct,max_reuse=limits(mode,level,scoped_games)
         for _ in range(attempts):
             six=trial_six(buckets,family_usage,rng,pair_sets) if mode=='Trial' else balanced_six(buckets,family_usage,rng)
