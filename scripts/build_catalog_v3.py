@@ -145,7 +145,10 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usag
             if bad:continue
             q=score_counts(ints,mode,scoped_games)+(level*100)
             if best is None or q<best[0]:best=(q,rows,cols,ints,distinct,level)
-            if level==0 and q<8:break
+            # Once a balanced grid is close to the target answer-pool shape,
+            # further random searching has negligible player benefit but makes
+            # a full multi-mode catalogue build needlessly slow.
+            if level==0 and q<30:break
         if best:break
     if not best:
         raise RuntimeError(f'Could not build a valid {mode} puzzle for {date} after progressive search')
