@@ -161,7 +161,10 @@ function startServer() {
     }
     if (relative === 'index.html') {
       let source = fs.readFileSync(path.join(ROOT, relative), 'utf8');
-      source = source.replace('__GAMEGRID_RELEASE_VERSION__', releaseVersion);
+      source = source.replace(
+        /(GAMEGRID_RELEASE_VERSION\s*=\s*["'])(.*?)(["'])/,
+        (_match, prefix, _oldVersion, suffix) => `${prefix}${releaseVersion}${suffix}`,
+      );
       response.writeHead(200, { 'content-type': contentType(relative) });
       response.end(source);
       return;
