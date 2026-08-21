@@ -6,6 +6,8 @@ SOURCES=[
 ('PC','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_PC.csv'),
 ('PlayStation','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_PlayStation.csv'),
 ('Xbox','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_Xbox.csv')]
+GENRES_URL='https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/genres.csv'
+PLATFORMS_URL='https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/platforms.csv'
 # Keep the whole upstream catalogue.  The former 6,000-record cut-off silently
 # discarded well-known games with fewer ratings and made the search results
 # depend on an opaque popularity ranking.  GitHub Pages can serve the generated
@@ -28,7 +30,7 @@ ALIASES={
 # rating-based puzzle eligibility or an artificial rarity rank.
 ESSENTIAL_GAMES=[
  ('Gears of War',2006,['Xbox 360','PC'],['Epic Games'],['Microsoft Game Studios'],['Shooter','Adventure'],84,9000),
- ('BioShock',2007,['PC','Xbox 360','PlayStation 3'],['Irrational Games'],['2K'],['Shooter','Adventure'],88,11000),
+ ('BioShock',2007,['PC','Xbox 360','PlayStation 3'],['Irrational Games'],['2K'],['Shooter','Adventure'],96,11000),
  ('Mass Effect',2007,['Xbox 360','PC','PlayStation 3'],['BioWare'],['EA'],['Role-playing (RPG)','Adventure'],86,10000),
  ('Grand Theft Auto IV',2008,['PlayStation 3','Xbox 360','PC'],['Rockstar North'],['Rockstar Games'],['Adventure','Action'],92,18000),
  ('Demon’s Souls',2009,['PlayStation 3'],['FromSoftware'],['Sony Computer Entertainment'],['Role-playing (RPG)','Adventure'],89,8000),
@@ -72,7 +74,7 @@ def pick(row,k):
         if a in low:return row[low[a]]
     return ''
 
-def parse_any(v):
+def parse_any(v,keep_numeric=False):
     if v is None:return []
     if isinstance(v,(list,tuple)):return list(v)
     s=str(v).strip()
@@ -88,7 +90,7 @@ def parse_any(v):
             item=item.get('name') or item.get('company',{}).get('name') or item.get('platform',{}).get('name') or ''
         elif isinstance(item,(list,tuple)) and item:item=item[-1]
         item=str(item).strip(" []{}'\"")
-        if item and not item.isdigit():out.append(item)
+        if item and (keep_numeric or not item.isdigit()):out.append(item)
     return list(dict.fromkeys(out))
 
 def year_of(v):
@@ -119,7 +121,16 @@ def read_source(group,url):
     with urllib.request.urlopen(url,timeout=120) as r:data=r.read().decode('utf-8-sig','replace')
     return list(csv.DictReader(io.StringIO(data)))
 
+def read_lookup(url,key,value):
+    with urllib.request.urlopen(url,timeout=120) as r:data=r.read().decode('utf-8-sig','replace')
+    return {str(row[key]).strip():str(row[value]).strip() for row in csv.DictReader(io.StringIO(data)) if row.get(key) and row.get(value)}
+
 def build_games():
+    # The four game files store IGDB genre and platform IDs, not names.  Keep
+    # those IDs through parsing and resolve them through the source's own
+    # lookup tables; otherwise nearly every source game loses its genre.
+    genre_names=read_lookup(GENRES_URL,'genre_id','genre')
+    platform_names=read_lookup(PLATFORMS_URL,'id','name')
     merged={}
     for group,url in SOURCES:
         for row in read_source(group,url):
@@ -129,9 +140,9 @@ def build_games():
             if yr<1975 or yr>dt.date.today().year+1:continue
             rawid=str(pick(row,'id') or '').strip()
             key=rawid or re.sub(r'[^a-z0-9]+','-',title.lower()).strip('-')
-            plats=[norm_platform(x) for x in parse_any(pick(row,'platforms'))]
+            plats=[norm_platform(platform_names.get(str(x),str(x))) for x in parse_any(pick(row,'platforms'),keep_numeric=True)]
             if not plats:plats=[group if group!='Nintendo' else 'Nintendo platform']
-            genres=parse_any(pick(row,'genres'))
+            genres=[genre_names.get(str(x),str(x)) for x in parse_any(pick(row,'genres'),keep_numeric=True)]
             devs=parse_any(pick(row,'developers'))
             pubs=parse_any(pick(row,'publishers'))
             r=num(pick(row,'rating'))
