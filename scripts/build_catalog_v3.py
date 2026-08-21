@@ -21,7 +21,7 @@ PERFORMANCE_BUDGETS={
 
 def clue_family(spec):
     kind=spec.get('kind','')
-    if kind in {'developer','publisher','franchise'}: return 'maker'
+    if kind in {'developer','publisher','publisherFamily','franchise'}: return 'maker'
     if kind in {'platform','platformAny'}: return 'platform'
     if kind=='yearRange': return 'era'
     if kind=='genre': return 'genre'
@@ -94,29 +94,48 @@ def balanced_six(buckets,family_usage,rng):
     return selected
 
 
-def trial_six(buckets,family_usage,rng):
+def trial_six(buckets,family_usage,rng,pair_sets=None):
     """Pick three maker rows and three varied game-fact columns."""
     makers=buckets.get('maker',[])
     if len(makers)<3:return None
     selected_makers=[]
-    for kind in ('developer','publisher','franchise'):
-        choices=[spec for spec in makers if spec.get('kind')==kind]
-        if choices:selected_makers.append(rng.choice(choices))
+    preferred=[spec for spec in makers if spec.get('kind')=='publisherFamily']
+    if len(preferred)>=3:
+        selected_makers=rng.sample(preferred,3)
+    else:
+        selected_makers=[]
+        for kind in ('publisherFamily','publisher','developer','franchise'):
+            choices=[spec for spec in makers if spec.get('kind')==kind and spec not in selected_makers]
+            if choices:selected_makers.append(rng.choice(choices))
     remaining=[spec for spec in makers if spec not in selected_makers]
     while len(selected_makers)<3 and remaining:
         selected_makers.append(rng.choice(remaining));remaining=[spec for spec in remaining if spec not in selected_makers]
     if len(selected_makers)<3:return None
-    context_families=[family for family in CORE_FAMILIES if buckets.get(family)]
-    if len(context_families)<3:return None
-    context_families.sort(key=lambda family:(family_usage.get(family,0),rng.random()))
-    context_families=context_families[:3]
-    columns=[]
-    for family in context_families:
-        choices=buckets[family]
+    context_options={}
+    for family in CORE_FAMILIES:
+        choices=buckets.get(family,[])
         if family=='title':
             substantive=[spec for spec in choices if spec.get('kind')!='titleInitial']
             choices=substantive or choices
+        if pair_sets is not None:
+            choices=[spec for spec in choices if all(len(pair_lookup(pair_sets,maker['id'],spec['id']))>=3 for maker in selected_makers)]
+        if choices:context_options[family]=choices
+    if len(context_options)<2:return None
+    context_families=sorted(context_options,key=lambda family:(family_usage.get(family,0),rng.random()))
+    # Prefer three different knowledge families. If the sparse source only
+    # provides two viable families for this maker trio, repeat a non-rating
+    # family with a different criterion rather than manufacturing a weak cell.
+    selected_families=context_families[:3]
+    while len(selected_families)<3:
+        repeatable=[family for family in context_families if family!='rating' and family!='title' or len(context_options[family])>1]
+        if not repeatable:repeatable=context_families
+        selected_families.append(rng.choice(repeatable))
+    columns=[]
+    for family in selected_families:
+        choices=[spec for spec in context_options[family] if spec not in columns]
+        if not choices:continue
         columns.append(rng.choice(choices))
+    if len(columns)<3:return None
     return selected_makers+columns
 
 
@@ -266,7 +285,7 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usag
     for level,attempts in enumerate((5000,12000,25000)):
         low,high,min_distinct,max_reuse=limits(mode,level,scoped_games)
         for _ in range(attempts):
-            six=trial_six(buckets,family_usage,rng) if mode=='Trial' else balanced_six(buckets,family_usage,rng)
+            six=trial_six(buckets,family_usage,rng,pair_sets) if mode=='Trial' else balanced_six(buckets,family_usage,rng)
             if not six: break
             if mode=='Trial':
                 # Trial has a deliberate axis contract: maker criteria down the

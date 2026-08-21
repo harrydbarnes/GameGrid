@@ -190,13 +190,42 @@ def _maker_slug(value):
     return slug or hashlib.sha1(str(value).encode('utf-8')).hexdigest()[:10]
 
 
-def trial_specs(games,min_games=6):
-    """Build stable maker criteria for Trial from usable catalogue metadata."""
+PUBLISHER_FAMILIES=(
+    ('Nintendo',('nintendo',)),
+    ('Sony',('sony',)),
+    # Bethesda is included here because it is the same first-party Microsoft
+    # family in the current source snapshot; this keeps the maker row useful
+    # without pretending Bethesda is an independent platform ecosystem.
+    ('Xbox / Microsoft',('microsoft','xbox','bethesda')),
+    ('EA',('electronic arts',)),
+    ('Square Enix',('square enix',)),
+    ('Rockstar',('rockstar',)),
+    ('Bethesda',('bethesda',)),
+    ('Capcom',('capcom',)),
+    ('Ubisoft',('ubisoft',)),
+    ('Bandai Namco',('bandai namco',)),
+)
+
+
+def publisher_family(value):
+    folded=str(value or '').casefold()
+    for family,needles in PUBLISHER_FAMILIES:
+        if any(needle in folded for needle in needles):return family
+    return ''
+
+
+def trial_specs(games,min_games=3):
+    """Build stable maker criteria for Trial from usable catalogue metadata.
+
+    Three is the hard lower bound for a valid square, so a maker with fewer
+    releases cannot contribute a playable Trial row.
+    """
     groups={}
     displays={}
     fields=(
         ('developer','developers','Made by'),
         ('publisher','publishers','Published by'),
+        ('publisherFamily','publishers','Published by'),
         ('franchise','franchise','Franchise'),
     )
     for game in games:
@@ -207,6 +236,7 @@ def trial_specs(games,min_games=6):
             if not isinstance(values,(list,tuple)):values=[values]
             for raw in values:
                 value=str(raw or '').strip()
+                if kind=='publisherFamily':value=publisher_family(value)
                 if len(value)<2 or value.isdigit():continue
                 group_key=(kind,value.casefold())
                 groups.setdefault(group_key,set()).add(game_id)
@@ -224,6 +254,7 @@ def match(g,s):
     k=s['kind'];v=s['value']
     if k=='developer':return v in g.get('developers',[])
     if k=='publisher':return v in g.get('publishers',[])
+    if k=='publisherFamily':return any(publisher_family(value)==v for value in g.get('publishers',[]))
     if k=='franchise':return g.get('franchise','')==v
     if k=='platform':
         if v=='PlayStation':return any(p.startswith('PlayStation') or p in {'PSP','PS Vita'} for p in g['platforms'])
@@ -279,6 +310,7 @@ def js_clues(specs=None):
         "const clues=Object.fromEntries(clueSpecs.map(s=>[s.id,{label:s.label,test:g=>{const k=s.kind,v=s.value;"
         "if(k==='developer')return (g.developers||[]).includes(v);"
         "if(k==='publisher')return (g.publishers||[]).includes(v);"
+        "if(k==='publisherFamily'){const q=value=>String(value||'').toLowerCase();const family=value=>{const folded=q(value);if(folded.includes('nintendo'))return 'Nintendo';if(folded.includes('sony'))return 'Sony';if(folded.includes('microsoft')||folded.includes('xbox')||folded.includes('bethesda'))return 'Xbox / Microsoft';if(folded.includes('electronic arts'))return 'EA';if(folded.includes('square enix'))return 'Square Enix';if(folded.includes('rockstar'))return 'Rockstar';if(folded.includes('capcom'))return 'Capcom';if(folded.includes('ubisoft'))return 'Ubisoft';if(folded.includes('bandai namco'))return 'Bandai Namco';return ''};return (g.publishers||[]).some(p=>family(p)===v)}"
         "if(k==='franchise')return String(g.franchise||'')===v;"
         "if(k==='platform'){if(v==='PlayStation')return (g.platforms||[]).some(p=>p.startsWith('PlayStation')||['PSP','PS Vita'].includes(p));if(v==='Xbox')return (g.platforms||[]).some(p=>p.startsWith('Xbox'));if(v==='Nintendo')return (g.platforms||[]).some(p=>['Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES','Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS','Nintendo platform'].includes(p));return (g.platforms||[]).includes(v)}"
         "if(k==='platformAny')return (g.platforms||[]).some(p=>v.includes(p));"

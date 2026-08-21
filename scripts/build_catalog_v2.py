@@ -34,7 +34,14 @@ def clue_pool(mode,counts,scoped_games=None,specs=None):
     scoped=scoped_games if scoped_games is not None else max(counts.values(),default=0)
     ceiling=max(5000,int(scoped*.95))
     specs=specs or base.CLUE_SPECS
-    specs=[s for s in specs if 20<=counts.get(s['id'],0)<=ceiling or (mode=='Trial' and clue_family(s)=='maker' and counts.get(s['id'],0)>=6)]
+    if mode=='Trial':
+        # Trial evaluates context clues against a maker row, so a globally
+        # broad era/platform clue can still be selective enough in a cell.
+        # Keep every usable context candidate and let the intersection search
+        # reject catch-all combinations.
+        specs=[s for s in specs if (clue_family(s)=='maker' and counts.get(s['id'],0)>=3) or (clue_family(s)!='maker' and counts.get(s['id'],0)>=20)]
+    else:
+        specs=[s for s in specs if 20<=counts.get(s['id'],0)<=ceiling]
     if mode=='Classic': return specs
     if mode=='Retro':
         excluded={'y2000s','y2010s','y2020s','post2015','switch2','ps5','ps4','xseries','xone'}
@@ -54,13 +61,13 @@ def clue_pool(mode,counts,scoped_games=None,specs=None):
     if mode=='Deep Cut':
         return [s for s in specs if s['id'] not in {'pc','playstation','xbox','nintendo','rating70'}]
     if mode=='Trial':
-        return [s for s in specs if clue_family(s)=='maker' or clue_family(s) in {'platform','genre','era','rating','title'}]
+        return [s for s in specs if clue_family(s)=='maker' or clue_family(s) in {'platform','genre','era','release','rating','title'}]
     return specs
 
 
 def clue_family(spec):
     kind=spec.get('kind','')
-    if kind in {'developer','publisher','franchise'}: return 'maker'
+    if kind in {'developer','publisher','publisherFamily','franchise'}: return 'maker'
     if kind=='platform': return 'platform'
     if kind=='yearRange': return 'release'
     if kind=='genre': return 'genre'

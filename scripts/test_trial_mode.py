@@ -31,10 +31,17 @@ class TrialModeTests(unittest.TestCase):
         self.assertIn('Trial', modes.MODES)
 
     def test_trial_specs_are_maker_criteria_with_meaningful_pools(self):
-        specs=catalog.trial_specs(sample_games(), min_games=6)
+        specs=catalog.trial_specs(sample_games(), min_games=3)
         self.assertTrue(specs)
-        self.assertTrue(all(spec['kind'] in {'developer','publisher','franchise'} for spec in specs))
+        self.assertTrue(all(spec['kind'] in {'developer','publisher','publisherFamily','franchise'} for spec in specs))
         self.assertTrue(all(spec['id'].split(':',1)[0]==spec['kind'] for spec in specs))
+
+    def test_publisher_family_alias_is_matchable(self):
+        game={'id':'bethesda','publishers':['Bethesda Softworks'],'developers':[],'franchise':''}
+        specs=catalog.trial_specs([game],min_games=1)
+        family=next(spec for spec in specs if spec['kind']=='publisherFamily')
+        self.assertEqual(family['value'],'Xbox / Microsoft')
+        self.assertTrue(catalog.match(game,family))
 
     def test_trial_grid_has_maker_rows_and_varied_context_columns(self):
         games=sample_games()
