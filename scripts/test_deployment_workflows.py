@@ -39,13 +39,25 @@ class DeploymentWorkflowTests(unittest.TestCase):
             "actions/download-artifact@v4",
             "name: gamegrid-catalogue",
             "run-id:",
-            "actions: read",
+            "actions: write",
             "- '*.js'",
+            "actions/cache/restore@v4",
+            "actions/cache/save@v4",
+            "path: ~/.cache/ms-playwright",
+            "playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}",
+            "npx playwright install --with-deps chromium",
         ):
             self.assertIn(required, source)
         self.assertNotIn('build_catalog_v3.py', source)
         self.assertNotIn('enrich_covers.py', source)
         self.assertNotIn('schedule:', source)
+
+    def test_catalogue_push_is_allowlisted_away_from_documentation(self):
+        source = self.read('catalogue.yml')
+        self.assertIn('push:', source)
+        self.assertIn('paths:', source)
+        for documentation_path in ('README.md', 'docs/**', '*.md'):
+            self.assertNotIn(documentation_path, source)
 
 
 if __name__ == '__main__':

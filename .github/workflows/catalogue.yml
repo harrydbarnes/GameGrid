@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '17 4 * * 1'
+  # Keep catalogue rebuilds data-only: README/docs and UI shell changes do not match this allowlist.
   push:
     branches: [main]
     paths:

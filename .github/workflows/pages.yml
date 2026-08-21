@@ -15,7 +15,7 @@ on:
     types: [completed]
 
 permissions:
-  actions: read
+  actions: write
   contents: read
   pages: write
   id-token: write
@@ -79,8 +79,22 @@ jobs:
           cache: npm
       - name: Install browser regression dependencies
         run: npm ci
+      - name: Restore Playwright Chromium cache
+        id: playwright-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-chromium-${{ runner.os }}-
       - name: Install Chromium for browser regressions
         run: npx playwright install --with-deps chromium
+      - name: Save Playwright Chromium cache
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Run browser regression suite against generated assets
         env:
           GAMEGRID_BROWSER_USE_GENERATED: '1'
