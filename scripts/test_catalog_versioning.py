@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Public contract tests for versioned GameGrid catalogue artefacts."""
 import unittest
+from pathlib import Path
 
 import build_catalog_v3 as catalog
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class CatalogueVersioningTests(unittest.TestCase):
@@ -44,6 +47,19 @@ class CatalogueVersioningTests(unittest.TestCase):
         self.assertIn("const INDEX_ASSET=\"./index.0123456789abcdef.js\"", worker)
         self.assertIn('importScripts(INDEX_ASSET)', worker)
         self.assertIn("type:'results'", worker)
+
+    def test_search_order_is_neutral_after_relevance(self):
+        worker = catalog.search_worker('index.0123456789abcdef.js')
+        self.assertIn('function titleOrder', worker)
+        self.assertIn('titleOrder(a.row,b.row)', worker)
+        self.assertIn('list.sort(titleOrder)', worker)
+        self.assertNotIn('popularity(row)', worker)
+
+        app = (ROOT / 'app.js').read_text(encoding='utf-8')
+        self.assertIn('function titleOrder', app)
+        self.assertIn('titleOrder(a.g,b.g)', app)
+        self.assertIn('list.slice().sort(titleOrder)', app)
+        self.assertNotIn('searchScore(g,query)+popularity(g)', app)
 
     def test_pair_sets_are_translated_from_positions_to_game_ids(self):
         games = [{'id': 'first'}, {'id': 'second'}]

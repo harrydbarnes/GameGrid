@@ -150,10 +150,10 @@ def search_worker(index_asset):
 importScripts(INDEX_ASSET);
 const rows=Array.isArray(self.GAMEGRID_INDEX)?self.GAMEGRID_INDEX:[];
 function normalise(value){return String(value??'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\\s+/g,' ').trim()}
-function popularity(row){return Math.log10(Number(row[6]||0)+1)*12+Number(row[5]||0)/10+(Number(row[2])>=2015?2:0)}
+function titleOrder(a,b){return String(a[1]).localeCompare(String(b[1]))||Number(a[2]||0)-Number(b[2]||0)||String(a[0]).localeCompare(String(b[0]))}
 function searchScore(row,q){const title=normalise(row[1]),words=title.split(' '),queryWords=q.split(' ').filter(Boolean);if(title===q)return 10000;if(title.startsWith(q))return 8000-q.length;if(words.some(word=>word===q))return 7000;if(words.some(word=>word.startsWith(q)))return 6200;const position=title.indexOf(q);if(position>=0)return 5000-position;if(queryWords.every(word=>title.includes(word)))return 3500+queryWords.reduce((score,word)=>score+(words.some(item=>item.startsWith(word))?50:0),0);return -1}
 self.postMessage({type:'ready',count:rows.length});
-self.onmessage=event=>{const message=event.data||{};if(message.type!=='search')return;const query=normalise(message.query),excluded=new Set(message.excluded||[]);let list=rows.filter(row=>!excluded.has(row[0]));if(query)list=list.map(row=>({row,score:searchScore(row,query)+popularity(row)})).filter(item=>item.score>=0).sort((a,b)=>b.score-a.score||Number(b.row[6]||0)-Number(a.row[6]||0)||String(a.row[1]).localeCompare(String(b.row[1]))).map(item=>item.row);else list=list.sort((a,b)=>popularity(b)-popularity(a)||String(a[1]).localeCompare(String(b[1])));self.postMessage({type:'results',id:message.id,rows:list.slice(0,20)});};
+self.onmessage=event=>{const message=event.data||{};if(message.type!=='search')return;const query=normalise(message.query),excluded=new Set(message.excluded||[]);let list=rows.filter(row=>!excluded.has(row[0]));if(query)list=list.map(row=>({row,score:searchScore(row,query)})).filter(item=>item.score>=0).sort((a,b)=>b.score-a.score||titleOrder(a.row,b.row)).map(item=>item.row);else list=list.sort(titleOrder);self.postMessage({type:'results',id:message.id,rows:list.slice(0,20)});};
 """
 
 
