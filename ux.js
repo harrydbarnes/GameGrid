@@ -36,6 +36,38 @@
     };
   }
 
+  // Restart is deliberately part of the same action group as giving up: it
+  // appears after a first submitted answer, then becomes the only action once
+  // the current grid has ended.
+  const actionStyle=document.createElement('style');
+  actionStyle.textContent='.game-actions{width:100%;display:grid}.game-actions.split{grid-template-columns:minmax(0,1fr) 52px;gap:8px}.game-actions .restart-btn{display:grid;place-items:center;padding:0;min-height:48px}.game-actions .restart-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.game-actions.finished .restart-btn{width:100%}.game-actions .restart-btn:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface));color:var(--accent)}@media(max-width:620px){.game-actions.split{grid-template-columns:minmax(0,1fr) 52px}.game-actions .restart-btn{min-height:46px}}';
+  document.head.append(actionStyle);
+  const actionMode=()=>document.querySelector('.mode-tab.active')?.dataset.mode||'Classic';
+  const actionPuzzleId=()=>((($('#puzzleTitle')?.textContent||'').match(/#(\d+)/)||[])[1]||'');
+  const actionState=()=>{try{return JSON.parse(localStorage.getItem(`gamegrid:${actionMode()}:${actionPuzzleId()}`)||'{}')}catch{return {}}};
+  let actionWrap,restartBtn;
+  function ensureGameActions(){
+    if(!giveUpBtn)return;
+    if(!actionWrap){
+      actionWrap=document.createElement('div');actionWrap.className='game-actions';
+      giveUpBtn.parentNode.insertBefore(actionWrap,giveUpBtn);actionWrap.append(giveUpBtn);
+      restartBtn=document.createElement('button');restartBtn.type='button';restartBtn.className='secondary-btn restart-btn';restartBtn.setAttribute('aria-label','Restart this grid');restartBtn.title='Restart this grid';restartBtn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>';
+      restartBtn.onclick=()=>{
+        const key=`gamegrid:${actionMode()}:${actionPuzzleId()}`;
+        localStorage.setItem(key,JSON.stringify({answers:Array(9).fill(null),rarities:Array(9).fill(null),guesses:9,started:Date.now(),finished:false,gaveUp:false,restarted:true}));
+        location.reload();
+      };
+      actionWrap.append(restartBtn);
+    }
+    const s=actionState(),madeGuess=Number(s.guesses)<9;
+    actionWrap.classList.toggle('split',!s.finished&&madeGuess);
+    actionWrap.classList.toggle('finished',Boolean(s.finished));
+    giveUpBtn.hidden=Boolean(s.finished);
+    restartBtn.hidden=!s.finished&&!madeGuess;
+  }
+  ensureGameActions();
+  new MutationObserver(ensureGameActions).observe(document.body,{subtree:true,childList:true,characterData:true});
+
   // app.js owns answer validation, but its viewport-level toast sits beneath an
   // open modal. Mirror invalid-answer feedback into the active search dialog,
   // immediately below the text field, where it remains readable on desktop and
