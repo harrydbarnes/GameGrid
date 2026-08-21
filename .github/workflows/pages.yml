@@ -46,7 +46,7 @@ jobs:
             if (context.eventName === 'workflow_run') {
               runId = context.payload.workflow_run.id;
             } else {
-              const response = await github.rest.actions.listWorkflowRunsForWorkflow({
+              const response = await github.rest.actions.listWorkflowRuns({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: 'catalogue.yml',

@@ -40,6 +40,7 @@ class DeploymentWorkflowTests(unittest.TestCase):
             "name: gamegrid-catalogue",
             "run-id:",
             "actions: write",
+            "listWorkflowRuns({",
             "- '*.js'",
             "actions/cache/restore@v4",
             "actions/cache/save@v4",
@@ -50,6 +51,7 @@ class DeploymentWorkflowTests(unittest.TestCase):
             self.assertIn(required, source)
         self.assertNotIn('build_catalog_v3.py', source)
         self.assertNotIn('enrich_covers.py', source)
+        self.assertNotIn('listWorkflowRunsForWorkflow', source)
         self.assertNotIn('schedule:', source)
 
     def test_catalogue_push_is_allowlisted_away_from_documentation(self):
