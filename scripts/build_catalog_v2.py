@@ -4,13 +4,15 @@ import build_catalog as base
 
 START=base.START
 END=base.END
-MODES=['Classic','Retro','Nintendo','PlayStation','Xbox','Deep Cut']
+MODES=['Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut']
 NINTENDO={'Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES','Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS','Nintendo platform'}
 
 
 def scope_ok(g,mode):
     if mode in {'Classic','Deep Cut'}: return True
-    if mode=='Retro': return g['year']<=2009
+    # The PS2 era began in 2000. The two era modes are deliberately exclusive.
+    if mode=='Retro': return g['year']<=1999
+    if mode=='Modern': return g['year']>=2000
     if mode=='Nintendo': return any(p in NINTENDO for p in g['platforms'])
     if mode=='PlayStation': return any(p.startswith('PlayStation') or p in {'PSP','PS Vita'} for p in g['platforms'])
     if mode=='Xbox': return any(p.startswith('Xbox') for p in g['platforms'])
@@ -26,7 +28,10 @@ def clue_pool(mode,counts,scoped_games=None):
     specs=[s for s in base.CLUE_SPECS if 20<=counts.get(s['id'],0)<=ceiling]
     if mode=='Classic': return specs
     if mode=='Retro':
-        excluded={'y2020s','post2015','switch2','ps5','ps4','xseries','xone'}
+        excluded={'y2000s','y2010s','y2020s','post2015','switch2','ps5','ps4','xseries','xone'}
+        return [s for s in specs if s['id'] not in excluded]
+    if mode=='Modern':
+        excluded={'pre1990','y1990s','pre2000','ps1','n64','snes','nes','gba','gbc','gb','ds','3ds','dreamcast','megadrive'}
         return [s for s in specs if s['id'] not in excluded]
     if mode=='Nintendo':
         ids={'switch','switch2','wiiu','wii','gamecube','n64','snes','nes','gba','gbc','gb','ds','3ds','y1990s','y2000s','y2010s','y2020s','pre2000','rpg','shooter','strategy','racing','sport','fighting','platformer','puzzle','adventure','simulation','indie','arcade','oneword','numbertitle','lettera','letterg','letterm','letters','rating70','rating80','rating85'}
@@ -98,7 +103,7 @@ def repetition_penalty(specs,recent_puzzles):
 
 def bounds(mode,relaxed=False):
     if mode=='Deep Cut': return (3,80 if relaxed else 45)
-    if mode in {'Nintendo','PlayStation','Xbox','Retro'}: return (3 if relaxed else 4,320 if relaxed else 180)
+    if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern'}: return (3 if relaxed else 4,320 if relaxed else 180)
     return (3 if relaxed else 5,500 if relaxed else 300)
 
 

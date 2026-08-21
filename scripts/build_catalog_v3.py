@@ -24,11 +24,11 @@ def limits(mode,level,scoped_games):
     # Each level remains valid, but progressively relaxes puzzle aesthetics so the build never fails just because a random search is unlucky.
     if level==0:
         if mode=='Deep Cut': return 3,round(45*scale),round(18*scale),3
-        if mode in {'Nintendo','PlayStation','Xbox','Retro'}: return 4,round(180*scale),round(30*scale),3
+        if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern'}: return 4,round(180*scale),round(30*scale),3
         return 5,round(300*scale),round(30*scale),3
     if level==1:
         if mode=='Deep Cut': return 3,round(70*scale),round(15*scale),4
-        if mode in {'Nintendo','PlayStation','Xbox','Retro'}: return 3,round(260*scale),round(22*scale),4
+        if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern'}: return 3,round(260*scale),round(22*scale),4
         return 3,round(420*scale),round(22*scale),4
     if mode=='Deep Cut': return 3,round(120*scale),round(12*scale),6
     return 3,round(600*scale),round(15*scale),6

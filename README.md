@@ -10,7 +10,7 @@ Pick a square and choose a video game that matches both the row and column clues
 
 The GitHub Pages workflow builds the production data before every deployment. `scripts/build_catalog.py` downloads the open PlayMyData research dataset (IGDB-derived), normalises and deduplicates it, and retains every eligible record rather than applying a popularity cut-off. It also backfills a small, reviewed set of major recent releases so the fixed research snapshot cannot omit obvious modern answers.
 
-The generator defines 40–60 data-driven clue types across platforms, release eras, genres, ratings and title properties. Mode-aware generation creates Classic, Retro, Nintendo, PlayStation, Xbox and Deep Cut daily puzzles through 31 December 2026.
+The generator defines 40–60 data-driven clue types across platforms, release eras, genres, ratings and title properties. Mode-aware generation creates Classic, Retro (before 2000), Modern (2000 onward), Nintendo, PlayStation, Xbox and Deep Cut daily puzzles through 31 December 2026.
 
 Every generated puzzle is validated before deployment. Each of its nine intersections must have multiple valid answers in the deployed catalogue. The generated `catalog-report.json` records catalogue size, clue counts, schedule range and clue coverage for auditing.
 

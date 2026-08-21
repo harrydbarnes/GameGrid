@@ -12,6 +12,9 @@ if clue_counts.get('adventure',0)<10000:errors.append('Adventure coverage is une
 if clue_counts.get('xbox',0)<5000:errors.append('Xbox coverage is unexpectedly low; platform IDs may not have been resolved')
 if not 40<=report['clues']<=60:errors.append('expected 40–60 clue types')
 if report['puzzles']<90:errors.append('expected at least 90 daily puzzles')
+for mode in ('Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut'):
+    if not report.get('modes',{}).get(mode,{}).get('puzzles'):
+        errors.append(f'missing generated puzzles for {mode} mode')
 if report['last']<'2026-11-30':errors.append('puzzle schedule does not span a few months')
 # generator only writes puzzles after every cell has >=3 answers; verify the generated file contains answerCounts for auditability
 counts=re.findall(r'"answerCounts":\[([^]]+)\]',text)
