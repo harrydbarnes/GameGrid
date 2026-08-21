@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import datetime as dt, hashlib, json, random, statistics
+import datetime as dt, gzip, hashlib, json, os, random, statistics
 import build_catalog as base
 import build_catalog_v2 as v2
 import catalog_quality as quality
@@ -8,6 +8,14 @@ START=base.START
 END=base.END
 MODES=v2.MODES
 CORE_FAMILIES=('platform','genre','era','rating','title')
+
+# The current production split is roughly 9.2 MB uncompressed. Keep enough
+# headroom for catalogue growth without allowing the initial/search payload to
+# drift back towards the old 23 MB all-in-one asset.
+PERFORMANCE_BUDGETS={
+    'puzzleIndexBytes':12_000_000,
+    'puzzleIndexGzipBytes':3_000_000,
+}
 
 
 def clue_family(spec):
@@ -78,6 +86,41 @@ def catalogue_hash(games,clue_specs):
 
 def catalogue_assets(build_hash):
     return {'dataAsset':f'puzzle.{build_hash}.js','indexAsset':f'index.{build_hash}.js','searchAsset':f'search.{build_hash}.js','detailsAsset':f'details.{build_hash}.js'}
+
+
+def asset_sizes(assets,root='.'):
+    """Return raw and deterministic gzip sizes for generated catalogue assets."""
+    sizes={}
+    for key,name in assets.items():
+        with open(os.path.join(root,name),'rb') as handle:
+            payload=handle.read()
+        sizes[key]={'file':name,'bytes':len(payload),'gzipBytes':len(gzip.compress(payload,mtime=0))}
+    puzzle_index={key:sizes[key] for key in ('dataAsset','indexAsset')}
+    sizes['puzzleIndex']={
+        'bytes':sum(item['bytes'] for item in puzzle_index.values()),
+        'gzipBytes':sum(item['gzipBytes'] for item in puzzle_index.values()),
+        'assets':['dataAsset','indexAsset'],
+    }
+    return sizes
+
+
+def performance_budget_errors(sizes,budgets=PERFORMANCE_BUDGETS):
+    """Describe any puzzle-plus-index budget violations without mutating files."""
+    total=sizes.get('puzzleIndex') if isinstance(sizes,dict) else None
+    if not isinstance(total,dict):
+        return ['puzzle + index size report is missing']
+    errors=[]
+    if total.get('bytes',0)>budgets['puzzleIndexBytes']:
+        errors.append(f"puzzle + index uncompressed size {total.get('bytes',0):,} exceeds {budgets['puzzleIndexBytes']:,} bytes")
+    if total.get('gzipBytes',0)>budgets['puzzleIndexGzipBytes']:
+        errors.append(f"puzzle + index gzip size {total.get('gzipBytes',0):,} exceeds {budgets['puzzleIndexGzipBytes']:,} bytes")
+    return errors
+
+
+def enforce_performance_budgets(sizes,budgets=PERFORMANCE_BUDGETS):
+    errors=performance_budget_errors(sizes,budgets)
+    if errors:
+        raise RuntimeError('Catalogue performance budget failed: '+'; '.join(errors))
 
 
 def compact_index(games):
@@ -235,12 +278,14 @@ def main():
     open(assets['indexAsset'],'w',encoding='utf-8').write('globalThis.GAMEGRID_INDEX='+json.dumps(compact_index(games),separators=(',',':'),ensure_ascii=False)+';\n')
     open(assets['searchAsset'],'w',encoding='utf-8').write(search_worker(assets['indexAsset']))
     open(assets['detailsAsset'],'w',encoding='utf-8').write('window.GAMEGRID_DETAILS='+json.dumps({'catalogHash':catalog_hash,'buildHash':build_hash,'games':detail_index(games)},separators=(',',':'),ensure_ascii=False)+';\n')
+    sizes=asset_sizes(assets)
+    enforce_performance_budgets(sizes)
     manifest={'catalogHash':catalog_hash,'buildHash':build_hash,**assets}
     open('catalog-manifest.js','w',encoding='utf-8').write('window.GAMEGRID_CATALOG_MANIFEST='+json.dumps(manifest,separators=(',',':'))+';\n')
     # Keep index.html stable while making its parser-blocking data hook load the
     # current manifest and its immutable, fingerprinted payload.
     open('data.js','w',encoding='utf-8').write("document.write('<script src=\"./catalog-manifest.js\"><\\/script><script src=\"./catalog-loader.js\"><\\/script>');\n")
-    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,**assets,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
+    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 

@@ -4,11 +4,13 @@ Requires free IGDB/Twitch credentials in IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.
 No credentials are ever shipped to the browser. Missing credentials simply skip enrichment.
 """
 import json, os, re, sys, time, urllib.parse, urllib.request
+from build_catalog_v3 import asset_sizes
 
 CLIENT_ID=os.getenv('IGDB_CLIENT_ID','').strip()
 CLIENT_SECRET=os.getenv('IGDB_CLIENT_SECRET','').strip()
 ROOT=os.path.join(os.path.dirname(__file__),'..')
 MANIFEST=os.path.join(ROOT,'catalog-manifest.js')
+REPORT=os.path.join(ROOT,'catalog-report.json')
 
 if not CLIENT_ID or not CLIENT_SECRET:
     print('IGDB credentials not configured; cover enrichment skipped.')
@@ -61,4 +63,8 @@ for g in games:
 new_details=json.dumps(details,separators=(',',':'),ensure_ascii=False)
 details_text=details_text[:details_match.start(1)]+new_details+details_text[details_match.end(1):]
 open(DETAILS,'w',encoding='utf-8').write(details_text)
+if os.path.exists(REPORT):
+    report=json.load(open(REPORT,encoding='utf-8'))
+    report['assetSizes']=asset_sizes(assets,ROOT)
+    open(REPORT,'w',encoding='utf-8').write(json.dumps(report,indent=2))
 print(f'Added real IGDB artwork to {len(covers)} of {len(games)} games.')

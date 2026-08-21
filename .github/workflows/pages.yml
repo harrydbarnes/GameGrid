@@ -30,7 +30,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build catalogue, modes and quality-scored puzzles
+      - name: Build catalogue, modes, quality-scored puzzles and performance-budget gate
         working-directory: .
         run: |
           cd scripts
@@ -43,7 +43,7 @@ jobs:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
         run: python scripts/enrich_covers.py
-      - name: Validate catalogue and every puzzle intersection
+      - name: Validate catalogue, asset budgets and every puzzle intersection
         run: python scripts/validate_catalog.py
       - name: Configure Pages
         uses: actions/configure-pages@v5

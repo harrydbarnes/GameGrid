@@ -41,6 +41,24 @@ class CatalogueVersioningTests(unittest.TestCase):
         pair_sets = {('col', 'row'): {1}}
         self.assertEqual(catalog.game_ids_for_pair(games, pair_sets, 'row', 'col'), {'second'})
 
+    def test_asset_sizes_report_and_budget_gate(self):
+        sizes = {
+            'dataAsset': {'file': 'puzzle.js', 'bytes': 100, 'gzipBytes': 50},
+            'indexAsset': {'file': 'index.js', 'bytes': 200, 'gzipBytes': 80},
+            'searchAsset': {'file': 'search.js', 'bytes': 10, 'gzipBytes': 10},
+            'detailsAsset': {'file': 'details.js', 'bytes': 300, 'gzipBytes': 100},
+            'puzzleIndex': {
+                'bytes': 300,
+                'gzipBytes': 130,
+                'assets': ['dataAsset', 'indexAsset'],
+            },
+        }
+        self.assertEqual(sizes['puzzleIndex']['bytes'], sizes['dataAsset']['bytes'] + sizes['indexAsset']['bytes'])
+        self.assertEqual(catalog.performance_budget_errors(sizes), [])
+        oversized = dict(sizes)
+        oversized['puzzleIndex'] = {'bytes': catalog.PERFORMANCE_BUDGETS['puzzleIndexBytes'] + 1, 'gzipBytes': 0}
+        self.assertTrue(catalog.performance_budget_errors(oversized))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -20,6 +20,22 @@ search_text=open(search_asset,encoding='utf-8').read()
 details_text=open(details_asset,encoding='utf-8').read()
 report=json.load(open('catalog-report.json'))
 errors=[]
+try:
+    actual_asset_sizes=puzzle_rules.asset_sizes({
+        'dataAsset':asset,
+        'indexAsset':index_asset,
+        'searchAsset':search_asset,
+        'detailsAsset':details_asset,
+    })
+except (OSError,TypeError) as exc:
+    actual_asset_sizes=None
+    errors.append(f'unable to measure generated catalogue assets: {exc}')
+if actual_asset_sizes is not None:
+    if report.get('assetSizes')!=actual_asset_sizes:
+        errors.append('catalogue report asset sizes do not match generated files')
+    if report.get('performanceBudgets')!=puzzle_rules.PERFORMANCE_BUDGETS:
+        errors.append('catalogue report performance budgets do not match CI policy')
+    errors.extend(puzzle_rules.performance_budget_errors(actual_asset_sizes))
 index_match=re.search(r'(?:window|globalThis)\.GAMEGRID_INDEX=(\[.*\]);',index_text,re.S)
 if not index_match:
     print('ERROR: unable to read compact search index');sys.exit(1)

@@ -12,7 +12,7 @@ The GitHub Pages workflow builds the production data before every deployment. `s
 
 The generator defines 40–60 data-driven clue types across platforms, release eras, genres, ratings and title properties. Mode-aware generation creates Classic, Retro (before 2000), Modern (2000 onward), Nintendo, PlayStation, Xbox and Deep Cut daily puzzles through 31 December 2026.
 
-Every generated puzzle is validated before deployment. Each of its nine intersections must have multiple valid answers in the deployed catalogue. The generated `catalog-report.json` records catalogue size, clue counts, schedule range and clue coverage for auditing.
+Every generated puzzle is validated before deployment. Each of its nine intersections must have multiple valid answers in the deployed catalogue. The generated `catalog-report.json` records catalogue size, clue counts, schedule range, clue coverage and raw/gzip sizes for every split asset. CI fails if the combined puzzle bootstrap and full search index exceed 12,000,000 raw bytes or 3,000,000 gzip bytes.
 
 Production loads a small catalogue manifest first, followed by a fingerprinted puzzle-only `puzzle.<build-hash>.js` asset. The full compact title index is fingerprinted separately and fetched into a search worker only when the answer picker (or postgame answer browser) is opened; rich developers, publishers and covers remain deferred. The manifest hash is stamped onto every puzzle; the browser refuses to start the game if the manifest, split assets and scheduled puzzles do not all agree. This prevents a cached page from combining a newer grid with an older catalogue.
 
