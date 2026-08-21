@@ -8,6 +8,7 @@ START=base.START
 END=base.END
 MODES=v2.MODES
 CORE_FAMILIES=('platform','genre','era','rating','title')
+ASSET_KEYS=('dataAsset','indexAsset','searchAsset','detailsAsset')
 
 # The current production split is roughly 9.2 MB uncompressed. Keep enough
 # headroom for catalogue growth without allowing the initial/search payload to
@@ -91,7 +92,10 @@ def catalogue_assets(build_hash):
 def asset_sizes(assets,root='.'):
     """Return raw and deterministic gzip sizes for generated catalogue assets."""
     sizes={}
-    for key,name in assets.items():
+    for key in ASSET_KEYS:
+        name=assets.get(key)
+        if not name:
+            raise ValueError(f'missing catalogue asset name: {key}')
         with open(os.path.join(root,name),'rb') as handle:
             payload=handle.read()
         sizes[key]={'file':name,'bytes':len(payload),'gzipBytes':len(gzip.compress(payload,mtime=0))}
