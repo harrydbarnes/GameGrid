@@ -309,6 +309,48 @@ async function mobileAnswerSearch(browser, server) {
   await context.close();
 }
 
+async function deferredDetailsFailure(browser, server) {
+  const { context, page } = await boot(browser, server);
+  let detailRequests = 0;
+  await page.route(`**/${server.active.manifest.detailsAsset}*`, async route => {
+    detailRequests++;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: 'window.GAMEGRID_DETAILS={catalogHash:"stale-catalog-hash",buildHash:"stale-build-hash",games:{}};',
+    });
+  });
+  const candidate = await page.evaluate(richIds => {
+    const today = new Date().toISOString().slice(0, 10);
+    const schedules = window.GAMEGRID_DATA.puzzles.filter(puzzle => puzzle.mode === 'Classic' && puzzle.date <= today);
+    const puzzle = schedules.at(-1) || window.GAMEGRID_DATA.puzzles.find(item => item.mode === 'Classic') || window.GAMEGRID_DATA.puzzles[0];
+    for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
+      for (let columnIndex = 0; columnIndex < 3; columnIndex++) {
+        const row = window.GAMEGRID_DATA.clues[puzzle.rows[rowIndex]];
+        const column = window.GAMEGRID_DATA.clues[puzzle.cols[columnIndex]];
+        const game = window.GAMEGRID_DATA.games.find(item => richIds.includes(item.id) && row.test(item) && column.test(item));
+        if (game) return { title: game.title, index: rowIndex * 3 + columnIndex };
+      }
+    }
+    return null;
+  }, server.active.richIds);
+  assert.ok(candidate?.title, 'fixture must provide a valid answer cell');
+  await page.locator('#grid .cell.empty').nth(candidate.index).click();
+  await page.locator('#searchDialog[open]').waitFor();
+  await page.locator('#gameSearch').fill(candidate.title);
+  const result = page.locator('.result').filter({ hasText: candidate.title }).first();
+  await result.waitFor();
+  await result.click();
+  await page.waitForFunction(() => Boolean(window.GameGridDetails?.unavailable));
+  assert.equal(detailRequests, 2);
+  assert.equal(await page.evaluate(() => Boolean(window.GAMEGRID_CATALOG_INVALID)), false);
+  await page.locator('#grid .cell.solved').first().click();
+  await page.locator('#infoDialog[open]').waitFor();
+  await page.locator('.details-fallback').waitFor();
+  assert.match(await page.locator('#infoDialog').innerText(), /additional details are unavailable right now/i);
+  await context.close();
+}
+
 async function staleAssetMismatch(browser, server) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -330,6 +372,7 @@ const tests = [
   ['import and reset', importAndReset],
   ['first lazy-detail click', firstLazyDetailClick],
   ['answer search on a mobile viewport', mobileAnswerSearch],
+  ['deferred details fallback', deferredDetailsFailure],
   ['stale asset mismatch', staleAssetMismatch],
 ];
 
