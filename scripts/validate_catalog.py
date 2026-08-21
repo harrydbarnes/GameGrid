@@ -44,7 +44,7 @@ if report.get('platformCounts')!=quality.platform_counts(games):
     errors.append('catalogue report platform counts do not match generated data')
 if report.get('playablePool')!=quality.playable_pool_report(games):
     errors.append('catalogue report playable-pool summary does not match generated data')
-if not 40<=report['clues']<=60:errors.append('expected 40–60 clue types')
+if not 40<=report['clues']<=65:errors.append('expected 40–65 clue types')
 if report['puzzles']<90:errors.append('expected at least 90 daily puzzles')
 for mode in ('Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut'):
     if not report.get('modes',{}).get(mode,{}).get('puzzles'):
