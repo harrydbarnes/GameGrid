@@ -25,12 +25,18 @@ headers={'Client-ID':CLIENT_ID,'Authorization':'Bearer '+token,'Accept':'applica
 manifest=open(MANIFEST,encoding='utf-8').read()
 match=re.search(r'window\.GAMEGRID_CATALOG_MANIFEST=(\{.*\});',manifest)
 if not match:raise RuntimeError('Could not locate generated catalogue manifest')
-DATA=os.path.join(ROOT,json.loads(match.group(1))['dataAsset'])
-text=open(DATA,encoding='utf-8').read()
-m=re.search(r'const games=(\[.*?\]);\nconst clueSpecs=',text,re.S)
-if not m:raise RuntimeError('Could not locate generated games array')
-games=json.loads(m.group(1))
+assets=json.loads(match.group(1))
+INDEX=os.path.join(ROOT,assets['indexAsset'])
+DETAILS=os.path.join(ROOT,assets['detailsAsset'])
+index_text=open(INDEX,encoding='utf-8').read()
+m=re.search(r'window\.GAMEGRID_INDEX=(\[.*\]);',index_text,re.S)
+if not m:raise RuntimeError('Could not locate generated compact search index')
+games=[{'id':row[0]} for row in json.loads(m.group(1))]
 ids=[]
+details_text=open(DETAILS,encoding='utf-8').read()
+details_match=re.search(r'window\.GAMEGRID_DETAILS=(\{.*\});',details_text,re.S)
+if not details_match:raise RuntimeError('Could not locate generated details payload')
+details=json.loads(details_match.group(1))
 for g in games:
     try: ids.append(int(g['id']))
     except: pass
@@ -50,9 +56,9 @@ for g in games:
     image=covers.get(str(g['id']))
     if image:
         # t_cover_big is portrait-oriented and large enough for grid/search while remaining CDN optimised.
-        g['coverUrl']='https://images.igdb.com/igdb/image/upload/t_cover_big/'+image+'.jpg'
+        details['games'].setdefault(g['id'],{})['coverUrl']='https://images.igdb.com/igdb/image/upload/t_cover_big/'+image+'.jpg'
 
-new_games=json.dumps(games,separators=(',',':'),ensure_ascii=False)
-text=text[:m.start(1)]+new_games+text[m.end(1):]
-open(DATA,'w',encoding='utf-8').write(text)
+new_details=json.dumps(details,separators=(',',':'),ensure_ascii=False)
+details_text=details_text[:details_match.start(1)]+new_details+details_text[details_match.end(1):]
+open(DETAILS,'w',encoding='utf-8').write(details_text)
 print(f'Added real IGDB artwork to {len(covers)} of {len(games)} games.')

@@ -23,6 +23,12 @@ class CatalogueVersioningTests(unittest.TestCase):
         self.assertEqual(puzzles[0]['buildHash'], build_hash)
         self.assertRegex(build_hash, r'^[0-9a-f]{16}$')
 
+    def test_catalogue_assets_split_puzzles_index_and_details(self):
+        assets = catalog.catalogue_assets('0123456789abcdef')
+        self.assertEqual(assets['dataAsset'], 'puzzle.0123456789abcdef.js')
+        self.assertEqual(assets['indexAsset'], 'index.0123456789abcdef.js')
+        self.assertEqual(assets['detailsAsset'], 'details.0123456789abcdef.js')
+
 
 if __name__ == '__main__':
     unittest.main()

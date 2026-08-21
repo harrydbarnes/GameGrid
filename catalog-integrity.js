@@ -14,6 +14,9 @@
     meta.catalogHash===manifest.catalogHash&&
     meta.buildHash===manifest.buildHash&&
     meta.dataAsset===manifest.dataAsset&&
+    meta.indexAsset===manifest.indexAsset&&
+    meta.detailsAsset===manifest.detailsAsset&&
+    Array.isArray(data.games)&&data.games.length===meta.gameCount&&
     Array.isArray(data.puzzles)&&
     data.puzzles.every(p=>p.catalogHash===manifest.catalogHash&&p.buildHash===manifest.buildHash);
   if(!valid)fail('The catalogue and puzzle schedule do not match. Please refresh in a moment.');

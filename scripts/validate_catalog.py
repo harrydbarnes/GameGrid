@@ -9,21 +9,27 @@ if not manifest_match:
     print('ERROR: missing generated catalogue manifest');sys.exit(1)
 manifest=json.loads(manifest_match.group(1))
 asset=manifest.get('dataAsset','')
-if not re.fullmatch(r'data\.[a-f0-9]{16}\.js',asset):
-    print('ERROR: catalogue manifest does not reference a fingerprinted data asset');sys.exit(1)
+index_asset=manifest.get('indexAsset','')
+details_asset=manifest.get('detailsAsset','')
+if not re.fullmatch(r'puzzle\.[a-f0-9]{16}\.js',asset) or not re.fullmatch(r'index\.[a-f0-9]{16}\.js',index_asset) or not re.fullmatch(r'details\.[a-f0-9]{16}\.js',details_asset):
+    print('ERROR: catalogue manifest does not reference fingerprinted split assets');sys.exit(1)
 text=open(asset,encoding='utf-8').read()
+index_text=open(index_asset,encoding='utf-8').read()
+details_text=open(details_asset,encoding='utf-8').read()
 report=json.load(open('catalog-report.json'))
 errors=[]
-games_match=re.search(r'const games=(\[.*?\]);\nconst clueSpecs=',text,re.S)
-if not games_match:
-    print('ERROR: unable to read games from generated catalogue asset');sys.exit(1)
-games=json.loads(games_match.group(1))
+index_match=re.search(r'window\.GAMEGRID_INDEX=(\[.*\]);',index_text,re.S)
+if not index_match:
+    print('ERROR: unable to read compact search index');sys.exit(1)
+games=[{'id':row[0],'title':row[1],'year':row[2],'platforms':row[3],'tags':row[4],'rating':row[5],'ratingsCount':row[6],'developers':[],'publishers':[]} for row in json.loads(index_match.group(1))]
+if not re.search(r'window\.GAMEGRID_DETAILS=(\{.*\});',details_text,re.S):
+    errors.append('unable to read deferred game-details payload')
 playable_games=quality.playable_games(games)
 clues_match=re.search(r'const clueSpecs=(\[.*?\]);\nconst clues=',text,re.S)
 if not clues_match:
     print('ERROR: unable to read clue definitions from generated catalogue asset');sys.exit(1)
 clue_specs={spec['id']:spec for spec in json.loads(clues_match.group(1))}
-if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset:
+if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset or report.get('indexAsset')!=index_asset or report.get('detailsAsset')!=details_asset:
     errors.append('catalogue report and manifest disagree')
 if f'"catalogHash":"{manifest.get("catalogHash","")}"' not in text or f'"buildHash":"{manifest.get("buildHash","")}"' not in text:
     errors.append('catalogue data and manifest disagree')
@@ -92,8 +98,9 @@ else:
 # A release-era smoke test.  These titles span the requested last twenty years
 # and catch both a truncated source catalogue and an outdated source snapshot.
 spot_checks=['Gears of War','BioShock','Mass Effect','Grand Theft Auto IV','Demon’s Souls','Red Dead Redemption','The Elder Scrolls V: Skyrim','The Last of Us','Grand Theft Auto V','The Witcher 3: Wild Hunt','The Legend of Zelda: Breath of the Wild','Red Dead Redemption 2','Death Stranding','Animal Crossing: New Horizons','Elden Ring','Baldur’s Gate 3','Alan Wake 2','Astro Bot','Clair Obscur: Expedition 33']
+titles={game['title'] for game in games}
 for title in spot_checks:
-    if f'"title":"{title}"' not in text:errors.append(f'missing required catalogue spot-check: {title}')
+    if title not in titles:errors.append(f'missing required catalogue spot-check: {title}')
 if errors:
     print('\n'.join('ERROR: '+x for x in errors));sys.exit(1)
 print(f"Validated {report['games']:,} games, {report['clues']} clues and {report['puzzles']} puzzles ({report['first']} to {report['last']}).")
