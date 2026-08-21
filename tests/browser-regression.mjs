@@ -349,6 +349,18 @@ async function mobileAnswerSearch(browser, server) {
   await context.close();
 }
 
+async function modeExplainer(browser, server) {
+  const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
+  const activeMode = page.locator('.mode-tab.active');
+  assert.match(await activeMode.getAttribute('aria-label'), /any era, any platform/i);
+  assert.match(await page.locator('#modeLabel').innerText(), /ANY ERA/i);
+  await page.locator('#helpBtn').click();
+  const help = await page.locator('#infoBody').innerText();
+  assert.match(help, /Modern\s+—\s+PS2 onwards/i);
+  assert.match(help, /Retro\s+—\s+pre-PS2/i);
+  await context.close();
+}
+
 async function splitActionLayout(browser, server) {
   const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
   await page.evaluate(() => {
@@ -434,6 +446,7 @@ const tests = [
   ['import and reset', importAndReset],
   ['first lazy-detail click', firstLazyDetailClick],
   ['answer search on a mobile viewport', mobileAnswerSearch],
+  ['mode explainer', modeExplainer],
   ['give up and reset split layout', splitActionLayout],
   ['deferred details fallback', deferredDetailsFailure],
   ['stale asset mismatch', staleAssetMismatch],
