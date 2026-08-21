@@ -8,7 +8,7 @@ Pick a square and choose a video game that matches both the row and column clues
 
 ## Production data
 
-The GitHub Pages workflow builds the production data before every deployment. `scripts/build_catalog.py` downloads the open PlayMyData research dataset (IGDB-derived), normalises and deduplicates it, and retains every eligible record rather than applying a popularity cut-off. It also backfills a small, reviewed set of major recent releases so the fixed research snapshot cannot omit obvious modern answers.
+The catalogue publisher workflow builds the production data on the weekly schedule, when manually dispatched, or when catalogue-generation code changes. `scripts/build_catalog.py` downloads the open PlayMyData research dataset (IGDB-derived), normalises and deduplicates it, and retains every eligible record rather than applying a popularity cut-off. It also backfills a small, reviewed set of major recent releases so the fixed research snapshot cannot omit obvious modern answers.
 
 The generator defines 40–60 data-driven clue types across platforms, release eras, genres, ratings and title properties. Mode-aware generation creates Classic, Retro (before 2000), Modern (2000 onward), Nintendo, PlayStation, Xbox and Deep Cut daily puzzles through 31 December 2026.
 
@@ -45,7 +45,7 @@ The focused browser regression suite covers malformed local storage, stats impor
 
 ## Deployment
 
-Pushes to `main`, manual workflow dispatches and the weekly scheduled build trigger `.github/workflows/pages.yml`. The workflow generates the catalogue, optionally enriches it with IGDB artwork, validates it, uploads the static artifact and deploys through GitHub Pages.
+Catalogue generation and UI deployment are separate. **Publish GameGrid catalogue** produces and validates the complete fingerprinted catalogue/covers bundle and retains it as the `gamegrid-catalogue` Actions artifact. **Deploy GameGrid to Pages** downloads the latest successful bundle for normal UI pushes, manual dispatches, and automatically after catalogue publication, then runs the browser regressions and deploys through GitHub Pages. This keeps app-only releases independent of the multi-minute data build.
 
 No Netlify/Vercel/other web host is used.
 

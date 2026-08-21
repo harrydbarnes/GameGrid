@@ -3,11 +3,19 @@ name: Deploy GameGrid to Pages
 on:
   push:
     branches: [main]
+    paths:
+      - '*.html'
+      - '*.js'
+      - '*.css'
+      - 'site.webmanifest'
+      - 'favicon.svg'
   workflow_dispatch:
-  schedule:
-    - cron: '17 4 * * 1'
+  workflow_run:
+    workflows: [Publish GameGrid catalogue]
+    types: [completed]
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -18,32 +26,51 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
+      - name: Checkout application shell
         uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Locate latest successful catalogue bundle
+        id: catalogue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let runId;
+            if (context.eventName === 'workflow_run') {
+              runId = context.payload.workflow_run.id;
+            } else {
+              const response = await github.rest.actions.listWorkflowRunsForWorkflow({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'catalogue.yml',
+                branch: 'main',
+                per_page: 20,
+              });
+              const run = response.data.workflow_runs.find(item => item.status === 'completed' && item.conclusion === 'success');
+              runId = run?.id;
+            }
+            if (!runId) core.setFailed('No successful GameGrid catalogue bundle is available. Run Publish GameGrid catalogue first.');
+            else core.setOutput('run-id', String(runId));
+      - name: Download fingerprinted catalogue bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: gamegrid-catalogue
+          path: .
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.catalogue.outputs.run-id }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build catalogue, modes, quality-scored puzzles and performance-budget gate
-        working-directory: .
-        run: |
-          cd scripts
-          python build_catalog_v3.py
-          mv puzzle*.js index*.js search*.js details*.js ../
-          mv catalog-manifest.js ../catalog-manifest.js
-          mv catalog-report.json ../catalog-report.json
-      - name: Add free IGDB cover artwork
-        env:
-          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
-          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
-        run: python scripts/enrich_covers.py
-      - name: Validate catalogue, asset budgets and every puzzle intersection
+      - name: Validate reused catalogue bundle
         run: python scripts/validate_catalog.py
       - name: Set up Node for browser regressions
         uses: actions/setup-node@v4

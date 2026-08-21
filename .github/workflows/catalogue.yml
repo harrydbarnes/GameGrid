@@ -1,0 +1,65 @@
+name: Publish GameGrid catalogue
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_catalog.py'
+      - 'scripts/build_catalog_v2.py'
+      - 'scripts/build_catalog_v3.py'
+      - 'scripts/catalog_quality.py'
+      - 'scripts/enrich_covers.py'
+      - 'scripts/validate_catalog.py'
+      - 'scripts/test_catalog_*.py'
+      - 'scripts/test_mode_scopes.py'
+      - 'scripts/test_puzzle_rules.py'
+      - '.github/workflows/catalogue.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: catalogue
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build catalogue, modes, quality-scored puzzles and performance-budget gate
+        run: |
+          cd scripts
+          python build_catalog_v3.py
+          mv puzzle*.js index*.js search*.js details*.js ../
+          mv catalog-manifest.js ../catalog-manifest.js
+          mv catalog-report.json ../catalog-report.json
+      - name: Add free IGDB cover artwork
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: python scripts/enrich_covers.py
+      - name: Validate catalogue, asset budgets and every puzzle intersection
+        run: python scripts/validate_catalog.py
+      - name: Prepare catalogue artifact
+        run: |
+          set -euo pipefail
+          mkdir -p output/catalogue
+          cp puzzle*.js index*.js search*.js details*.js catalog-manifest.js catalog-report.json output/catalogue/
+      - name: Publish fingerprinted catalogue bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamegrid-catalogue
+          path: output/catalogue
+          if-no-files-found: error
+          retention-days: 90
