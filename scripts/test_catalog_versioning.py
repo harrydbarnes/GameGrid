@@ -38,7 +38,7 @@ class CatalogueVersioningTests(unittest.TestCase):
 
     def test_pair_sets_are_translated_from_positions_to_game_ids(self):
         games = [{'id': 'first'}, {'id': 'second'}]
-        pair_sets = {('row', 'col'): {1}}
+        pair_sets = {('col', 'row'): {1}}
         self.assertEqual(catalog.game_ids_for_pair(games, pair_sets, 'row', 'col'), {'second'})
 
 
