@@ -37,9 +37,12 @@ def balanced_families(specs):
     )
 
 
-def balanced_six(pool,family_usage,rng):
+def family_buckets(pool):
+    return {family:[spec for spec in pool if clue_family(spec)==family] for family in CORE_FAMILIES}
+
+
+def balanced_six(buckets,family_usage,rng):
     """Pick five core knowledge families, then rotate the sixth fairly."""
-    buckets={family:[spec for spec in pool if clue_family(spec)==family] for family in CORE_FAMILIES}
     if any(not candidates for candidates in buckets.values()):
         return None
     selected=[]
@@ -116,11 +119,12 @@ def score_counts(ints,mode,scoped_games):
 def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usage):
     if len(pool)<6:
         raise RuntimeError(f'{mode} has only {len(pool)} eligible clues; need at least 6')
+    buckets=family_buckets(pool)
     best=None
     for level,attempts in enumerate((5000,12000,25000)):
         low,high,min_distinct,max_reuse=limits(mode,level,scoped_games)
         for _ in range(attempts):
-            six=balanced_six(pool,family_usage,rng)
+            six=balanced_six(buckets,family_usage,rng)
             if not six: break
             rng.shuffle(six);rows=six[:3];cols=six[3:];ids=[s['id'] for s in six]
             if not balanced_families(six):continue
