@@ -372,6 +372,26 @@ async function modeExplainer(browser, server) {
   await context.close();
 }
 
+async function onboardingWalkthrough(browser, server) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(`${server.base}?onboarding=1`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#grid');
+  const tour = page.locator('.gamegrid-onboarding');
+  await tour.waitFor();
+  assert.equal(await tour.locator('.gamegrid-onboarding-progress span').count(), 4);
+  assert.match(await tour.locator('h2').innerText(), /One grid/i);
+  await tour.getByRole('button', { name: 'Next' }).click();
+  assert.match(await tour.locator('h2').innerText(), /Classic is the all-rounder/i);
+  assert.match(await tour.locator('.gamegrid-onboarding-body').innerText(), /Modern.*platform-specific/i);
+  assert.equal(await page.locator('#modeTabs .mode-tab.active.onboarding-clue-highlight').count(), 1);
+  await tour.getByRole('button', { name: 'Next' }).click();
+  assert.match(await tour.locator('h2').innerText(), /Criteria explain themselves/i);
+  await tour.getByRole('button', { name: 'Next' }).click();
+  assert.match(await tour.locator('h2').innerText(), /less obvious/i);
+  await context.close();
+}
+
 async function puzzleNavigation(browser, server) {
   const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
   const previous = page.locator('#previousPuzzleBtn');
@@ -481,6 +501,7 @@ const tests = [
   ['first lazy-detail click', firstLazyDetailClick],
   ['answer search on a mobile viewport', mobileAnswerSearch],
   ['mode explainer', modeExplainer],
+  ['introduction walkthrough', onboardingWalkthrough],
   ['past and future puzzle navigation', puzzleNavigation],
   ['give up and reset split layout', splitActionLayout],
   ['deferred details fallback', deferredDetailsFailure],

@@ -7,7 +7,7 @@
   const genreCopy={rpg:'The game must be classified as a role-playing game (RPG).',shooter:'The game must be classified as a shooter.',strategy:'The game must be classified as strategy.',racing:'The game must be classified as racing.',sport:'The game must be classified as sports.',fighting:'The game must be classified as fighting.',platformer:'The game must be classified as a platformer.',puzzle:'The game must be classified as puzzle.',adventure:'The game must be classified as adventure.',simulation:'The game must be classified as simulation.',indie:'The game must be classified as indie.',arcade:'The game must be classified as arcade.'};
   const generationCopy={gen6:'The game must have released for at least one sixth-generation console: PlayStation 2, GameCube, Xbox or Dreamcast.',gen7:'The game must have released for at least one seventh-generation console: PlayStation 3, Xbox 360 or Wii.',gen8:'The game must have released for at least one eighth-generation console: PlayStation 4, Xbox One, Wii U or Switch.',gen9:'The game must have released for at least one ninth-generation console: PlayStation 5, Xbox Series X|S or Switch 2.'};
 
-  const onboardingKey='gamegrid-onboarding-v3';
+  const onboardingKey='gamegrid-onboarding-v4';
   // A coach mark should reveal the product, not replace it with a dark modal.
   // These overrides are injected after the legacy stylesheet so the tour keeps
   // the active page visible and leaves the highlighted control interactive.
@@ -20,6 +20,7 @@
   const forceOnboarding=new URLSearchParams(location.search).get('onboarding')==='1';
   const onboardingSteps=[
     {eyebrow:'WELCOME TO GAMEGRID',title:'One grid. Nine great answers.',body:'Choose any +, then name a game that matches both its row and column clues. Every square has more than one valid answer.'},
+    {eyebrow:'CHOOSE YOUR STARTING POINT',title:'Classic is the all-rounder.',body:'Classic mixes every era and platform — the original GameGrid challenge. When you want a twist, try Modern (PS2 onwards) or a platform-specific mode.',highlight:'mode'},
     {eyebrow:'TRY THE LIVE CLUES',title:'Criteria explain themselves.',body:'Select a highlighted row or column label to see exactly what counts. The grid stays live while you explore.',highlight:true},
     {eyebrow:'MAKE THE GRID YOURS',title:'The less obvious, the better.',body:'Complete the grid, compare your answers with the most obvious and rarest picks, then share your score. Lower scores are better.'}
   ];
@@ -52,7 +53,7 @@
   function hasSeen(){if(forceOnboarding)return false;try{return localStorage.getItem(onboardingKey)==='1'}catch{return false}}
   function markSeen(){if(!forceOnboarding)try{localStorage.setItem(onboardingKey,'1')}catch{}}
   function clearHighlight(){document.querySelectorAll('.onboarding-clue-highlight').forEach(n=>n.classList.remove('onboarding-clue-highlight'))}
-  function highlight(){clearHighlight();document.querySelector('#grid .clue:not(.corner)')?.classList.add('onboarding-clue-highlight')}
+  function highlight(kind='clue'){clearHighlight();const target=kind==='mode'?document.querySelector('#modeTabs .mode-tab.active'):document.querySelector('#grid .clue:not(.corner)');target?.classList.add('onboarding-clue-highlight')}
   function startOnboarding(force=false){
     if((!force&&hasSeen())||document.querySelector('.gamegrid-onboarding'))return false;
     const info=$('#infoDialog');if(info?.open)info.close();
@@ -61,10 +62,10 @@
     document.body.appendChild(overlay);
     const eyebrow=overlay.querySelector('.gamegrid-onboarding-eyebrow'),title=overlay.querySelector('#onboardingTitle'),body=overlay.querySelector('.gamegrid-onboarding-body'),progress=overlay.querySelector('.gamegrid-onboarding-progress'),back=overlay.querySelector('.gamegrid-onboarding-back'),next=overlay.querySelector('.gamegrid-onboarding-next');
     function finish(){clearHighlight();markSeen();overlay.remove()}
-    function render(){const s=onboardingSteps[step];eyebrow.textContent=s.eyebrow;title.textContent=s.title;body.textContent=s.body;progress.innerHTML=onboardingSteps.map((_,i)=>`<span class="${i===step?'active':''}"></span>`).join('');back.hidden=step===0;next.textContent=step===onboardingSteps.length-1?'Start playing':'Next';clearHighlight();if(s.highlight)highlight();requestAnimationFrame(()=>next.focus())}
+    function render(){const s=onboardingSteps[step];eyebrow.textContent=s.eyebrow;title.textContent=s.title;body.textContent=s.body;progress.innerHTML=onboardingSteps.map((_,i)=>`<span class="${i===step?'active':''}"></span>`).join('');back.hidden=step===0;next.textContent=step===onboardingSteps.length-1?'Start playing':'Next';clearHighlight();if(s.highlight)highlight(s.highlight===true?'clue':s.highlight);requestAnimationFrame(()=>next.focus())}
     back.onclick=()=>{if(step>0){step--;render()}};next.onclick=()=>{if(step<onboardingSteps.length-1){step++;render()}else finish()};overlay.querySelector('.gamegrid-onboarding-skip').onclick=finish;overlay.addEventListener('keydown',e=>{if(e.key==='Escape')finish()});render();return true;
   }
-  window.GameGridOnboarding={start:()=>startOnboarding(true),version:3};
+  window.GameGridOnboarding={start:()=>startOnboarding(true),version:4};
 
   function addReplayIntro(){
     const dialog=$('#infoDialog'),title=$('#infoTitle'),body=$('#infoBody');
