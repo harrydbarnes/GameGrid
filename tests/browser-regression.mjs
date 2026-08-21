@@ -294,7 +294,7 @@ async function mobileAnswerSearch(browser, server) {
   await page.locator('#searchDialog[open]').waitFor();
   await indexLoaded;
   await page.locator('#gameSearch').fill('BioShock');
-  const result = page.locator('.result').filter({ hasText: 'BioShock' });
+  const result = page.locator('.result').filter({ hasText: 'BioShock' }).first();
   await result.waitFor();
   assert.equal(await page.locator('#gameSearch').evaluate(element => document.activeElement === element), true);
   const geometry = await page.locator('#searchDialog').evaluate(element => {
