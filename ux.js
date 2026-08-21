@@ -40,7 +40,7 @@
   // appears after a first submitted answer, then becomes the only action once
   // the current grid has ended.
   const actionStyle=document.createElement('style');
-  actionStyle.textContent='.game-actions{width:100%;display:grid}.game-actions.split{grid-template-columns:minmax(0,1fr) 52px;gap:8px}.game-actions .restart-btn{display:grid;place-items:center;padding:0;min-height:48px}.game-actions .restart-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.game-actions.finished .restart-btn{width:100%}.game-actions .restart-btn:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface));color:var(--accent)}@media(max-width:620px){.game-actions.split{grid-template-columns:minmax(0,1fr) 52px}.game-actions .restart-btn{min-height:46px}}';
+  actionStyle.textContent='.game-actions{width:100%;display:grid}.game-actions.split{grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px}.game-actions .restart-btn{display:grid;place-items:center;padding:0;min-height:48px}.game-actions .restart-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.game-actions.finished .restart-btn{width:100%}.game-actions .restart-btn:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface));color:var(--accent)}@media(max-width:620px){.game-actions.split{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}.game-actions .restart-btn{min-height:46px}}';
   document.head.append(actionStyle);
   const actionMode=()=>document.querySelector('.mode-tab.active')?.dataset.mode||'Classic';
   const actionPuzzleId=()=>((($('#puzzleTitle')?.textContent||'').match(/#(\d+)/)||[])[1]||'');

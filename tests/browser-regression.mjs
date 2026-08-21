@@ -349,6 +349,28 @@ async function mobileAnswerSearch(browser, server) {
   await context.close();
 }
 
+async function splitActionLayout(browser, server) {
+  const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
+  await page.evaluate(() => {
+    const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'Classic';
+    const id = (document.querySelector('#puzzleTitle')?.textContent.match(/#(\d+)/) || [])[1];
+    const key = `gamegrid:${mode}:${id}`;
+    const state = JSON.parse(localStorage.getItem(key) || '{}');
+    state.guesses = 8;
+    state.finished = false;
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#grid');
+  const action = page.locator('.game-actions');
+  await action.waitFor();
+  const buttons = action.locator('button:visible');
+  assert.equal(await buttons.count(), 2);
+  const widths = await buttons.evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width));
+  assert.ok(Math.abs(widths[0] / widths[1] - 2) < 0.08, `expected a 2:1 Give up/Reset ratio, got ${widths.join(':')}`);
+  await context.close();
+}
+
 async function deferredDetailsFailure(browser, server) {
   const { context, page } = await boot(browser, server);
   let detailRequests = 0;
@@ -412,6 +434,7 @@ const tests = [
   ['import and reset', importAndReset],
   ['first lazy-detail click', firstLazyDetailClick],
   ['answer search on a mobile viewport', mobileAnswerSearch],
+  ['give up and reset split layout', splitActionLayout],
   ['deferred details fallback', deferredDetailsFailure],
   ['stale asset mismatch', staleAssetMismatch],
   ['release version prompt', releaseVersionPrompt],
