@@ -417,6 +417,14 @@ async function puzzleNavigation(browser, server) {
 
 async function splitActionLayout(browser, server) {
   const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
+  const action = page.locator('.game-actions');
+  await action.waitFor();
+  const initial = await action.evaluate(element => ({
+    visible: [...element.querySelectorAll('button')].filter(button => !button.hidden && getComputedStyle(button).display !== 'none').length,
+    height: element.getBoundingClientRect().height,
+  }));
+  assert.equal(initial.visible, 1);
+  assert.ok(initial.height <= 52, `hidden Reset should not reserve a second row: ${JSON.stringify(initial)}`);
   await page.evaluate(() => {
     const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'Classic';
     const id = (document.querySelector('#puzzleTitle')?.textContent.match(/#(\d+)/) || [])[1];
@@ -428,12 +436,24 @@ async function splitActionLayout(browser, server) {
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#grid');
-  const action = page.locator('.game-actions');
   await action.waitFor();
   const buttons = action.locator('button:visible');
   assert.equal(await buttons.count(), 2);
   const widths = await buttons.evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width));
   assert.ok(Math.abs(widths[0] / widths[1] - 2) < 0.08, `expected a 2:1 Give up/Reset ratio, got ${widths.join(':')}`);
+  await page.evaluate(() => {
+    const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'Classic';
+    const id = (document.querySelector('#puzzleTitle')?.textContent.match(/#(\d+)/) || [])[1];
+    const key = `gamegrid:${mode}:${id}`;
+    const state = JSON.parse(localStorage.getItem(key) || '{}');
+    state.finished = true;
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#grid');
+  await action.waitFor();
+  assert.equal(await action.locator('button:visible').count(), 1);
+  assert.equal(await action.locator('.restart-btn').isVisible(), true);
   await context.close();
 }
 
