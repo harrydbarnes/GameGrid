@@ -138,8 +138,8 @@ function startServer() {
   let releaseVersion = active.mode === 'generated' ? 'generated-release-a' : 'fixture-release-a';
   if (active.mode === 'generated') {
     const shell = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-    const match = shell.match(/GAMEGRID_RELEASE_VERSION="([^"]+)"/);
-    if (match?.[1] && !match[1].includes('__GAMEGRID_RELEASE_VERSION__')) releaseVersion = match[1];
+    const match = shell.match(/GAMEGRID_RELEASE_VERSION\s*=\s*(["'])(.*?)\1/);
+    if (match?.[2] && !match[2].includes('__GAMEGRID_RELEASE_VERSION__')) releaseVersion = match[2];
   }
   const server = http.createServer((request, response) => {
     const pathname = decodeURIComponent(new URL(request.url || '/', 'http://127.0.0.1').pathname);
@@ -183,6 +183,7 @@ function startServer() {
         base: `http://127.0.0.1:${address.port}/`,
         active,
         setReleaseVersion: value => { releaseVersion = value; },
+        getReleaseVersion: () => releaseVersion,
         close: () => new Promise(done => server.close(done)),
       });
     });
@@ -191,7 +192,10 @@ function startServer() {
 
 async function releaseVersionPrompt(browser, server) {
   const { context, page } = await boot(browser, server);
-  assert.equal(await page.locator('.update-prompt').count(), 0);
+  assert.equal(await page.locator('.update-prompt').count(), 0, JSON.stringify({
+    expected: await page.evaluate(() => window.GAMEGRID_RELEASE_VERSION),
+    served: server.getReleaseVersion(),
+  }));
   server.setReleaseVersion('fixture-release-b');
   await page.evaluate(() => window.GameGridRelease?.check?.());
   await page.locator('.update-prompt').waitFor();
