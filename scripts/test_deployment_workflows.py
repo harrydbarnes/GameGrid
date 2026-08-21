@@ -58,6 +58,13 @@ class DeploymentWorkflowTests(unittest.TestCase):
         self.assertNotIn('listWorkflowRunsForWorkflow', source)
         self.assertNotIn('schedule:', source)
 
+    def test_pages_workflow_waits_for_catalogue_after_mixed_pushes(self):
+        source = self.read('pages.yml')
+        self.assertIn('catalogue_change_gate:', source)
+        self.assertIn('catalogue_changed=true', source)
+        self.assertIn('needs.catalogue_change_gate.outputs.catalogue_changed', source)
+        self.assertIn('test_trial_mode.py', self.read('catalogue.yml'))
+
     def test_catalogue_push_is_allowlisted_away_from_documentation(self):
         source = self.read('catalogue.yml')
         self.assertIn('push:', source)

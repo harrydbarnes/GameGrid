@@ -18,6 +18,7 @@ on:
       - 'scripts/test_details_fingerprinting.py'
       - 'scripts/test_mode_scopes.py'
       - 'scripts/test_puzzle_rules.py'
+      - 'scripts/test_trial_mode.py'
       - '.github/workflows/catalogue.yml'
 
 permissions:

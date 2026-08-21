@@ -47,6 +47,7 @@ class TrialModeTests(unittest.TestCase):
         self.assertGreaterEqual(len(set(puzzles.clue_family(spec) for spec in selected if puzzles.clue_family(spec)!='maker')),2)
         self.assertTrue(scoped)
         self.assertTrue(pairs)
+        self.assertTrue(all(not (key[0].split(':',1)[0] in {'developer','publisher','franchise'} and key[1].split(':',1)[0] in {'developer','publisher','franchise'}) for key in pairs))
 
     def test_trial_puzzle_keeps_makers_on_left_axis(self):
         games=sample_games()

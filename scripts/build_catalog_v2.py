@@ -134,7 +134,15 @@ def build_index(games,mode,specs=None):
     counts={cid:len(ids) for cid,ids in clue_sets.items()}
     pool=clue_pool(mode,counts,len(scoped_ids),specs)
     pair_sets={}
-    for a,b in itertools.combinations(pool,2):
+    if mode=='Trial':
+        # Trial fixes makers on the row axis and facts on the column axis, so
+        # maker×maker and fact×fact intersections can never be used. Avoiding
+        # those combinations keeps the dynamic maker index linear in the
+        # number of maker criteria instead of quadratic.
+        candidates=((a,b) for a in pool for b in pool if clue_family(a)=='maker' and clue_family(b)!='maker')
+    else:
+        candidates=itertools.combinations(pool,2)
+    for a,b in candidates:
         pair_sets[tuple(sorted((a['id'],b['id'])))]=clue_sets[a['id']] & clue_sets[b['id']]
     return scoped_ids,counts,pool,pair_sets
 
