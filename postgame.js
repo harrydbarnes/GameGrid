@@ -30,4 +30,9 @@
   function documentRarity(){const note=document.querySelector('.postgame-v2 .rarity-note'),copy='Catalogue rarity is a static percentile within this square: source review/poll participation count, with rating only as a small tie-breaker. It is not based on GameGrid player guesses. Lower is better; titles without enough source participation data remain valid but are score-neutral. Only unanswered squares cost 100 points.';if(note&&note.textContent!==copy)note.textContent=copy}
   const refresh=()=>{enhance();documentRarity()};
   const obs=new MutationObserver(refresh);obs.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});document.addEventListener('click',()=>setTimeout(refresh,0));
+  // The full searchable catalogue is still deferred, but the postgame answer
+  // browser also promises every valid title. Request the same worker-backed
+  // index before it renders and refresh the active cell once it is ready.
+  document.addEventListener('click',event=>{if(event.target.closest?.('#viewValidAnswers'))window.GameGridSearch?.ensure?.().catch?.(()=>{})},true);
+  document.addEventListener('gamegrid:index-ready',()=>{const input=$('#validAnswerSearch');if(input)input.dispatchEvent(new Event('input'))});
 })();

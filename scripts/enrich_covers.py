@@ -29,7 +29,7 @@ assets=json.loads(match.group(1))
 INDEX=os.path.join(ROOT,assets['indexAsset'])
 DETAILS=os.path.join(ROOT,assets['detailsAsset'])
 index_text=open(INDEX,encoding='utf-8').read()
-m=re.search(r'window\.GAMEGRID_INDEX=(\[.*\]);',index_text,re.S)
+m=re.search(r'(?:window|globalThis)\.GAMEGRID_INDEX=(\[.*\]);',index_text,re.S)
 if not m:raise RuntimeError('Could not locate generated compact search index')
 games=[{'id':row[0]} for row in json.loads(m.group(1))]
 ids=[]

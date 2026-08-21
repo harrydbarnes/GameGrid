@@ -10,29 +10,43 @@ if not manifest_match:
 manifest=json.loads(manifest_match.group(1))
 asset=manifest.get('dataAsset','')
 index_asset=manifest.get('indexAsset','')
+search_asset=manifest.get('searchAsset','')
 details_asset=manifest.get('detailsAsset','')
-if not re.fullmatch(r'puzzle\.[a-f0-9]{16}\.js',asset) or not re.fullmatch(r'index\.[a-f0-9]{16}\.js',index_asset) or not re.fullmatch(r'details\.[a-f0-9]{16}\.js',details_asset):
+if not re.fullmatch(r'puzzle\.[a-f0-9]{16}\.js',asset) or not re.fullmatch(r'index\.[a-f0-9]{16}\.js',index_asset) or not re.fullmatch(r'search\.[a-f0-9]{16}\.js',search_asset) or not re.fullmatch(r'details\.[a-f0-9]{16}\.js',details_asset):
     print('ERROR: catalogue manifest does not reference fingerprinted split assets');sys.exit(1)
 text=open(asset,encoding='utf-8').read()
 index_text=open(index_asset,encoding='utf-8').read()
+search_text=open(search_asset,encoding='utf-8').read()
 details_text=open(details_asset,encoding='utf-8').read()
 report=json.load(open('catalog-report.json'))
 errors=[]
-index_match=re.search(r'window\.GAMEGRID_INDEX=(\[.*\]);',index_text,re.S)
+index_match=re.search(r'(?:window|globalThis)\.GAMEGRID_INDEX=(\[.*\]);',index_text,re.S)
 if not index_match:
     print('ERROR: unable to read compact search index');sys.exit(1)
 games=[{'id':row[0],'title':row[1],'year':row[2],'platforms':row[3],'tags':row[4],'rating':row[5],'ratingsCount':row[6],'developers':[],'publishers':[]} for row in json.loads(index_match.group(1))]
 if not re.search(r'window\.GAMEGRID_DETAILS=(\{.*\});',details_text,re.S):
     errors.append('unable to read deferred game-details payload')
+if 'importScripts(' not in search_text or f'./{index_asset}' not in search_text:
+    errors.append('search worker does not import the fingerprinted compact index')
+puzzle_games_match=re.search(r'const games=(\[.*?\])\.map\(\[id,title,year,platforms,tags,rating,ratingsCount\]',text,re.S)
+if not puzzle_games_match:
+    errors.append('unable to read the compact puzzle bootstrap data')
+    puzzle_games=[]
+else:
+    puzzle_games=[{'id':row[0],'title':row[1],'year':row[2],'platforms':row[3],'tags':row[4],'rating':row[5],'ratingsCount':row[6],'developers':[],'publishers':[]} for row in json.loads(puzzle_games_match.group(1))]
 playable_games=quality.playable_games(games)
 clues_match=re.search(r'const clueSpecs=(\[.*?\]);\nconst clues=',text,re.S)
 if not clues_match:
     print('ERROR: unable to read clue definitions from generated catalogue asset');sys.exit(1)
 clue_specs={spec['id']:spec for spec in json.loads(clues_match.group(1))}
-if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset or report.get('indexAsset')!=index_asset or report.get('detailsAsset')!=details_asset:
+if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset or report.get('indexAsset')!=index_asset or report.get('searchAsset')!=search_asset or report.get('detailsAsset')!=details_asset:
     errors.append('catalogue report and manifest disagree')
 if f'"catalogHash":"{manifest.get("catalogHash","")}"' not in text or f'"buildHash":"{manifest.get("buildHash","")}"' not in text:
     errors.append('catalogue data and manifest disagree')
+if report.get('puzzleGameCount')!=len(puzzle_games):
+    errors.append('catalogue report puzzle bootstrap count does not match generated data')
+if not {game['id'] for game in puzzle_games}.issubset({game['id'] for game in games}):
+    errors.append('puzzle bootstrap contains a game missing from the full index')
 if report['games']<20000:errors.append('expected at least 20,000 games; catalogue may have been truncated')
 if report.get('selection')!='all eligible source records (no popularity cap)':errors.append('catalogue report does not confirm uncapped source selection')
 clue_counts=report.get('clueCounts',{})

@@ -14,7 +14,7 @@ The generator defines 40–60 data-driven clue types across platforms, release e
 
 Every generated puzzle is validated before deployment. Each of its nine intersections must have multiple valid answers in the deployed catalogue. The generated `catalog-report.json` records catalogue size, clue counts, schedule range and clue coverage for auditing.
 
-Production loads a small catalogue manifest first, followed by a fingerprinted `data.<build-hash>.js` asset. The manifest hash is stamped onto every puzzle; the browser refuses to start the game if the manifest, catalogue payload and scheduled puzzles do not all agree. This prevents a cached page from combining a newer grid with an older catalogue.
+Production loads a small catalogue manifest first, followed by a fingerprinted puzzle-only `puzzle.<build-hash>.js` asset. The full compact title index is fingerprinted separately and fetched into a search worker only when the answer picker (or postgame answer browser) is opened; rich developers, publishers and covers remain deferred. The manifest hash is stamped onto every puzzle; the browser refuses to start the game if the manifest, split assets and scheduled puzzles do not all agree. This prevents a cached page from combining a newer grid with an older catalogue.
 
 The small `data.js` committed to the repository is a fallback for local/offline development. It includes a representative set of landmark games (including the recent-release spot checks); the GitHub Actions build replaces it with the full generated production catalogue in the Pages deployment artifact.
 

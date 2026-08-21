@@ -77,7 +77,7 @@ def catalogue_hash(games,clue_specs):
 
 
 def catalogue_assets(build_hash):
-    return {'dataAsset':f'puzzle.{build_hash}.js','indexAsset':f'index.{build_hash}.js','detailsAsset':f'details.{build_hash}.js'}
+    return {'dataAsset':f'puzzle.{build_hash}.js','indexAsset':f'index.{build_hash}.js','searchAsset':f'search.{build_hash}.js','detailsAsset':f'details.{build_hash}.js'}
 
 
 def compact_index(games):
@@ -85,13 +85,27 @@ def compact_index(games):
     return [[g['id'],g['title'],g['year'],g['platforms'],g['tags'],g['rating'],g['ratingsCount']] for g in games]
 
 
+def search_worker(index_asset):
+    """Search the full compact index off the main thread after first use."""
+    index_literal=json.dumps('./'+index_asset)
+    return """const INDEX_ASSET="""+index_literal+""";
+importScripts(INDEX_ASSET);
+const rows=Array.isArray(self.GAMEGRID_INDEX)?self.GAMEGRID_INDEX:[];
+function normalise(value){return String(value??'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\\s+/g,' ').trim()}
+function popularity(row){return Math.log10(Number(row[6]||0)+1)*12+Number(row[5]||0)/10+(Number(row[2])>=2015?2:0)}
+function searchScore(row,q){const title=normalise(row[1]),words=title.split(' '),queryWords=q.split(' ').filter(Boolean);if(title===q)return 10000;if(title.startsWith(q))return 8000-q.length;if(words.some(word=>word===q))return 7000;if(words.some(word=>word.startsWith(q)))return 6200;const position=title.indexOf(q);if(position>=0)return 5000-position;if(queryWords.every(word=>title.includes(word)))return 3500+queryWords.reduce((score,word)=>score+(words.some(item=>item.startsWith(word))?50:0),0);return -1}
+self.postMessage({type:'ready',count:rows.length});
+self.onmessage=event=>{const message=event.data||{};if(message.type!=='search')return;const query=normalise(message.query),excluded=new Set(message.excluded||[]);let list=rows.filter(row=>!excluded.has(row[0]));if(query)list=list.map(row=>({row,score:searchScore(row,query)+popularity(row)})).filter(item=>item.score>=0).sort((a,b)=>b.score-a.score||Number(b.row[6]||0)-Number(a.row[6]||0)||String(a.row[1]).localeCompare(String(b.row[1]))).map(item=>item.row);else list=list.sort((a,b)=>popularity(b)-popularity(a)||String(a[1]).localeCompare(String(b[1])));self.postMessage({type:'results',id:message.id,rows:list.slice(0,20)});};
+"""
+
+
 def detail_index(games):
     return {g['id']:{key:g[key] for key in ('developers','publishers','franchise','coverUrl') if g.get(key)} for g in games if any(g.get(key) for key in ('developers','publishers','franchise','coverUrl'))}
 
 
-def version_puzzles(puzzles,expected_catalogue_hash):
+def version_puzzles(puzzles,expected_catalogue_hash,payload=None):
     """Stamp every puzzle with the catalogue it was generated against."""
-    build_hash=fingerprint({'catalogHash':expected_catalogue_hash,'puzzles':puzzles})
+    build_hash=fingerprint({'catalogHash':expected_catalogue_hash,'puzzles':puzzles,'payload':payload})
     for puzzle in puzzles:
         puzzle['catalogHash']=expected_catalogue_hash
         puzzle['buildHash']=build_hash
@@ -171,13 +185,16 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usag
 
 
 def generate(games):
-    all_puzzles=[];report_modes={};pid=1
+    all_puzzles=[];report_modes={};puzzle_game_ids=set();pid=1
     for mi,mode in enumerate(MODES):
         scoped_ids,counts,pool,pair_sets=v2.build_index(games,mode)
         print(f'Generating {mode}: {len(scoped_ids)} scoped games, {len(pool)} clues')
         rng=random.Random(260817+mi*997);recent=[];family_usage={family:0 for family in CORE_FAMILIES};d=START;mode_ps=[]
         while d<=END:
             p=make_puzzle(mode,d,pid,recent,pool,pair_sets,rng,len(scoped_ids),family_usage);pid+=1
+            for row in p['rows']:
+                for col in p['cols']:
+                    puzzle_game_ids.update(pair_lookup(pair_sets,row,col))
             for criterion in p['rows']+p['cols']:
                 family_usage[clue_family(next(spec for spec in pool if spec['id']==criterion))]+=1
             mode_ps.append(p);recent=(recent+[tuple(p['rows']+p['cols'])])[-45:];d+=dt.timedelta(days=1)
@@ -185,7 +202,7 @@ def generate(games):
         medians=[statistics.median(p['answerCounts']) for p in mode_ps]
         report_modes[mode]={'puzzles':len(mode_ps),'scopedGames':len(scoped_ids),'medianAnswersPerSquare':round(statistics.median(medians),1),'minAnswers':min(min(p['answerCounts']) for p in mode_ps),'maxAnswers':max(max(p['answerCounts']) for p in mode_ps),'familyUsage':family_usage,'relaxedPuzzles':sum(p.get('generationLevel',0)>0 for p in mode_ps)}
     all_puzzles.sort(key=lambda p:(p['date'],MODES.index(p['mode'])))
-    return all_puzzles,report_modes
+    return all_puzzles,report_modes,puzzle_game_ids
 
 
 def main():
@@ -195,8 +212,10 @@ def main():
     # usable metadata and a small real-world participation signal shape grids.
     playable_games=quality.playable_games(games)
     if len(playable_games)<4000:raise RuntimeError(f'Playable catalogue too small: {len(playable_games)}')
-    puzzles,mode_report=generate(playable_games)
-    catalog_hash,build_hash=version_puzzles(puzzles,catalogue_hash(games,base.CLUE_SPECS))
+    puzzles,mode_report,puzzle_game_ids=generate(playable_games)
+    puzzle_games=[game for game in games if game['id'] in puzzle_game_ids]
+    catalog_hash=catalogue_hash(games,base.CLUE_SPECS)
+    _,build_hash=version_puzzles(puzzles,catalog_hash,{'puzzleGameIds':sorted(puzzle_game_ids)})
     assets=catalogue_assets(build_hash)
     data_asset=assets['dataAsset']
     # Preserve raw-index coverage telemetry separately from the curated counts
@@ -204,17 +223,19 @@ def main():
     # explains the playable puzzle pool without conflating the two.
     clue_counts={s['id']:sum(base.match(g,s) for g in games) for s in base.CLUE_SPECS}
     playable_clue_counts={s['id']:sum(base.match(g,s) for g in playable_games) for s in base.CLUE_SPECS}
-    meta={'gameCount':len(games),'playableGameCount':len(playable_games),'clueCount':len(base.CLUE_SPECS),'puzzleCount':len(puzzles),'modes':MODES,'source':'PlayMyData (IGDB-derived)','catalogHash':catalog_hash,'buildHash':build_hash,**assets}
-    out="window.GAMEGRID_DATA=(()=>{\nconst games=(window.GAMEGRID_INDEX||[]).map(([id,title,year,platforms,tags,rating,ratingsCount])=>({id,title,year,platforms,tags,rating,ratingsCount,developers:[],publishers:[]}));\n"+base.js_clues()+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:"+json.dumps(meta,separators=(',',':'))+"};\n})();\n"
+    meta={'gameCount':len(games),'puzzleGameCount':len(puzzle_games),'playableGameCount':len(playable_games),'clueCount':len(base.CLUE_SPECS),'puzzleCount':len(puzzles),'modes':MODES,'source':'PlayMyData (IGDB-derived)','catalogHash':catalog_hash,'buildHash':build_hash,**assets}
+    puzzle_index=json.dumps(compact_index(puzzle_games),separators=(',',':'),ensure_ascii=False)
+    out="window.GAMEGRID_DATA=(()=>{\nconst games="+puzzle_index+".map(([id,title,year,platforms,tags,rating,ratingsCount])=>({id,title,year,platforms,tags,rating,ratingsCount,developers:[],publishers:[]}));\n"+base.js_clues()+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:"+json.dumps(meta,separators=(',',':'))+"};\n})();\n"
     open(data_asset,'w',encoding='utf-8').write(out)
-    open(assets['indexAsset'],'w',encoding='utf-8').write('window.GAMEGRID_INDEX='+json.dumps(compact_index(games),separators=(',',':'),ensure_ascii=False)+';\n')
+    open(assets['indexAsset'],'w',encoding='utf-8').write('globalThis.GAMEGRID_INDEX='+json.dumps(compact_index(games),separators=(',',':'),ensure_ascii=False)+';\n')
+    open(assets['searchAsset'],'w',encoding='utf-8').write(search_worker(assets['indexAsset']))
     open(assets['detailsAsset'],'w',encoding='utf-8').write('window.GAMEGRID_DETAILS='+json.dumps({'catalogHash':catalog_hash,'buildHash':build_hash,'games':detail_index(games)},separators=(',',':'),ensure_ascii=False)+';\n')
     manifest={'catalogHash':catalog_hash,'buildHash':build_hash,**assets}
     open('catalog-manifest.js','w',encoding='utf-8').write('window.GAMEGRID_CATALOG_MANIFEST='+json.dumps(manifest,separators=(',',':'))+';\n')
     # Keep index.html stable while making its parser-blocking data hook load the
     # current manifest and its immutable, fingerprinted payload.
     open('data.js','w',encoding='utf-8').write("document.write('<script src=\"./catalog-manifest.js\"><\\/script><script src=\"./catalog-loader.js\"><\\/script>');\n")
-    report={'games':len(games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,**assets,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
+    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,**assets,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 

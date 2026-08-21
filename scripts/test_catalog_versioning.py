@@ -23,11 +23,18 @@ class CatalogueVersioningTests(unittest.TestCase):
         self.assertEqual(puzzles[0]['buildHash'], build_hash)
         self.assertRegex(build_hash, r'^[0-9a-f]{16}$')
 
-    def test_catalogue_assets_split_puzzles_index_and_details(self):
+    def test_catalogue_assets_split_puzzles_index_search_and_details(self):
         assets = catalog.catalogue_assets('0123456789abcdef')
         self.assertEqual(assets['dataAsset'], 'puzzle.0123456789abcdef.js')
         self.assertEqual(assets['indexAsset'], 'index.0123456789abcdef.js')
+        self.assertEqual(assets['searchAsset'], 'search.0123456789abcdef.js')
         self.assertEqual(assets['detailsAsset'], 'details.0123456789abcdef.js')
+
+    def test_search_worker_imports_the_fingerprinted_index(self):
+        worker = catalog.search_worker('index.0123456789abcdef.js')
+        self.assertIn("const INDEX_ASSET=\"./index.0123456789abcdef.js\"", worker)
+        self.assertIn('importScripts(INDEX_ASSET)', worker)
+        self.assertIn("type:'results'", worker)
 
 
 if __name__ == '__main__':
