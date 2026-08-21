@@ -22,6 +22,11 @@ class DeploymentWorkflowTests(unittest.TestCase):
             "actions/upload-artifact@v4",
             "name: gamegrid-catalogue",
             "retention-days: 90",
+            "actions/cache/restore@v4",
+            "actions/cache/save@v4",
+            "IGDB_COVER_CACHE_FILE",
+            "gamegrid-igdb-covers-v1-${{ steps.catalogue.outputs.catalog-hash }}",
+            "restore-keys:",
         ):
             self.assertIn(required, source)
 

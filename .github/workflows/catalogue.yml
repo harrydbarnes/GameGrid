@@ -44,13 +44,43 @@ jobs:
           mv puzzle*.js index*.js search*.js details*.js ../
           mv catalog-manifest.js ../catalog-manifest.js
           mv catalog-report.json ../catalog-report.json
+      - name: Read catalogue hash
+        id: catalogue
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import re
+          from pathlib import Path
+          source = Path('catalog-manifest.js').read_text(encoding='utf-8')
+          match = re.search(r'window\.GAMEGRID_CATALOG_MANIFEST=(\{.*\});', source)
+          if not match:
+              raise SystemExit('catalogue manifest is missing')
+          manifest = json.loads(match.group(1))
+          print(f"catalog-hash={manifest['catalogHash']}")
+          PY
+      - name: Restore IGDB cover cache
+        id: cover-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/igdb-covers
+          key: gamegrid-igdb-covers-v1-${{ steps.catalogue.outputs.catalog-hash }}
+          restore-keys: |
+            gamegrid-igdb-covers-v1-
       - name: Add free IGDB cover artwork
+        id: enrich-covers
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+          IGDB_COVER_CACHE_FILE: .cache/igdb-covers/cover-map.json
         run: python scripts/enrich_covers.py
       - name: Validate catalogue, asset budgets and every puzzle intersection
         run: python scripts/validate_catalog.py
+      - name: Save IGDB cover cache
+        if: ${{ steps.enrich-covers.outputs.cache-updated == 'true' && steps.cover-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/igdb-covers
+          key: gamegrid-igdb-covers-v1-${{ steps.catalogue.outputs.catalog-hash }}
       - name: Prepare catalogue artifact
         run: |
           set -euo pipefail

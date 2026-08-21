@@ -29,7 +29,7 @@ GameGrid can enrich the production catalogue with real cover artwork from IGDB a
 5. Add repository secrets named `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET`.
 6. Re-run **Deploy GameGrid to Pages** from the Actions tab, or push a commit to `main`.
 
-`scripts/enrich_covers.py` uses those secrets only inside GitHub Actions, retrieves IGDB cover image IDs for the generated catalogue, and adds public IGDB Image CDN URLs to the deployed data. The credentials are never included in the GitHub Pages JavaScript. If the secrets are absent, deployment still succeeds and the existing letter-art fallback is used.
+`scripts/enrich_covers.py` uses those secrets only inside GitHub Actions, retrieves IGDB cover image IDs for the generated catalogue, and adds public IGDB Image CDN URLs to the deployed data. The credentials are never included in the GitHub Pages JavaScript. The catalogue workflow persists a positive and negative ID lookup map in an Actions cache keyed by `catalogHash`; a new catalogue restores the latest map and asks IGDB only about unseen IDs. If the secrets are absent, deployment still succeeds and the existing letter-art fallback is used.
 
 ## Local development
 
