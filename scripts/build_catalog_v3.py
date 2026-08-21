@@ -2,6 +2,7 @@
 import datetime as dt, hashlib, json, random, statistics
 import build_catalog as base
 import build_catalog_v2 as v2
+import catalog_quality as quality
 
 START=base.START
 END=base.END
@@ -124,7 +125,7 @@ def main():
     # Keep index.html stable while making its parser-blocking data hook load the
     # current manifest and its immutable, fingerprinted payload.
     open('data.js','w',encoding='utf-8').write("document.write('<script src=\"./catalog-manifest.js\"><\\/script><script src=\"./catalog-loader.js\"><\\/script>');\n")
-    report={'games':len(games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'selection':'all eligible source records (no popularity cap)','essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'dataAsset':data_asset}
+    report={'games':len(games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'selection':'all eligible source records (no popularity cap)','essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'dataAsset':data_asset,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 

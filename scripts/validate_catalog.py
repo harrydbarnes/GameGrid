@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json,re,sys
+import catalog_quality as quality
 manifest_text=open('catalog-manifest.js',encoding='utf-8').read()
 manifest_match=re.search(r'window\.GAMEGRID_CATALOG_MANIFEST=(\{.*\});',manifest_text)
 if not manifest_match:
@@ -11,6 +12,10 @@ if not re.fullmatch(r'data\.[a-f0-9]{16}\.js',asset):
 text=open(asset,encoding='utf-8').read()
 report=json.load(open('catalog-report.json'))
 errors=[]
+games_match=re.search(r'const games=(\[.*?\]);\nconst clueSpecs=',text,re.S)
+if not games_match:
+    print('ERROR: unable to read games from generated catalogue asset');sys.exit(1)
+games=json.loads(games_match.group(1))
 if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset:
     errors.append('catalogue report and manifest disagree')
 if f'"catalogHash":"{manifest.get("catalogHash","")}"' not in text or f'"buildHash":"{manifest.get("buildHash","")}"' not in text:
@@ -22,6 +27,14 @@ clue_counts=report.get('clueCounts',{})
 # catalogue numerically large but makes genre intersections effectively empty.
 if clue_counts.get('adventure',0)<10000:errors.append('Adventure coverage is unexpectedly low; genre IDs may not have been resolved')
 if clue_counts.get('xbox',0)<5000:errors.append('Xbox coverage is unexpectedly low; platform IDs may not have been resolved')
+coverage=quality.metadata_coverage(games)
+errors.extend(quality.metadata_quality_errors(games))
+errors.extend(quality.platform_coverage_errors(games))
+errors.extend(quality.platform_landmark_errors(games))
+if report.get('metadataCoverage')!=coverage:
+    errors.append('catalogue report metadata coverage does not match generated data')
+if report.get('platformCounts')!=quality.platform_counts(games):
+    errors.append('catalogue report platform counts do not match generated data')
 if not 40<=report['clues']<=60:errors.append('expected 40–60 clue types')
 if report['puzzles']<90:errors.append('expected at least 90 daily puzzles')
 for mode in ('Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut'):
