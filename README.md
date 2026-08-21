@@ -43,11 +43,13 @@ python -m http.server 8000
 
 For the full production-sized dataset, run the generator/validator scripts before starting the server. The production build requires internet access because it retrieves upstream data.
 
-The focused browser regression suite covers malformed local storage, stats import/reset, the first deferred-details interaction, mobile answer search and stale catalogue assets. Run `npm ci`, `npx playwright install chromium` and `npm run test:browser`; CI runs it against the generated fingerprinted assets after catalogue validation.
+The focused browser regression suite covers malformed local storage, stats import/reset, the first deferred-details interaction, mobile answer search, stale catalogue assets and the release-version refresh prompt. Run `npm ci`, `npx playwright install chromium` and `npm run test:browser`; CI runs it against the generated fingerprinted assets after catalogue validation.
 
 ## Deployment
 
 Catalogue generation and UI deployment are separate. **Publish GameGrid catalogue** produces and validates the complete fingerprinted catalogue/covers bundle and retains it as the `gamegrid-catalogue` Actions artifact. **Deploy GameGrid to Pages** downloads the latest successful bundle for normal UI pushes, manual dispatches, and automatically after catalogue publication, then runs the browser regressions and deploys through GitHub Pages. This keeps app-only releases independent of the multi-minute data build.
+
+Each Pages deployment stamps `index.html` with the checked-out shell commit plus the catalogue, puzzle and details hashes, and publishes the same value in `release-version.json`. The client checks that small marker with a cache-busting, `no-store` request when it loads and when the tab becomes visible. If a cached shell is older than the deployed release, it shows **New version available — refresh**; the check is advisory, so a temporary marker request failure never blocks gameplay.
 
 No Netlify/Vercel/other web host is used.
 

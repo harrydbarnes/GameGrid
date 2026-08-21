@@ -1,0 +1,71 @@
+.update-prompt {
+  position: fixed;
+  left: 50%;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  transform: translate(-50%, calc(100% + 20px));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  max-width: min(460px, calc(100vw - 24px));
+  padding: 12px 14px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  font-weight: 750;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  z-index: 40;
+}
+
+.update-prompt.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+.update-prompt button {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 9px;
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.update-prompt button:hover {
+  background: var(--accent2);
+  border-color: var(--accent2);
+}
+
+.update-prompt .update-dismiss {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+@media (max-width: 620px) {
+  .update-prompt {
+    left: 12px;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    max-width: none;
+    justify-content: space-between;
+    transform: translateY(calc(100% + 20px));
+  }
+
+  .update-prompt > span {
+    flex-basis: 100%;
+  }
+
+  .update-prompt.show {
+    transform: translateY(0);
+  }
+}

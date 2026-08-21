@@ -72,6 +72,40 @@ jobs:
           python-version: '3.12'
       - name: Validate reused catalogue bundle
         run: python scripts/validate_catalog.py
+      - name: Stamp shell release and marker
+        run: |
+          export GAMEGRID_SHELL_SHA="$(git rev-parse HEAD)"
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          manifest_text = Path('catalog-manifest.js').read_text(encoding='utf-8')
+          match = re.search(r'window\.GAMEGRID_CATALOG_MANIFEST\s*=\s*({.*?})\s*;', manifest_text, re.S)
+          if not match:
+              raise SystemExit('catalog-manifest.js does not contain a readable manifest')
+          manifest = json.loads(match.group(1))
+          shell_sha = os.environ['GAMEGRID_SHELL_SHA']
+          version = '-'.join(filter(None, (
+              shell_sha,
+              manifest.get('catalogHash'),
+              manifest.get('buildHash'),
+              manifest.get('detailsHash'),
+          )))
+          index = Path('index.html')
+          marker = '__GAMEGRID_RELEASE_VERSION__'
+          source = index.read_text(encoding='utf-8')
+          if marker not in source:
+              raise SystemExit('index.html is missing the release marker placeholder')
+          index.write_text(source.replace(marker, version, 1), encoding='utf-8')
+          Path('release-version.json').write_text(json.dumps({
+              'version': version,
+              'catalogHash': manifest.get('catalogHash'),
+              'buildHash': manifest.get('buildHash'),
+              'detailsHash': manifest.get('detailsHash'),
+          }, separators=(',', ':')) + '\n', encoding='utf-8')
+          PY
       - name: Set up Node for browser regressions
         uses: actions/setup-node@v4
         with:

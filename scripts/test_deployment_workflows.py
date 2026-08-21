@@ -47,6 +47,10 @@ class DeploymentWorkflowTests(unittest.TestCase):
             "path: ~/.cache/ms-playwright",
             "playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}",
             "npx playwright install --with-deps chromium",
+            "Stamp shell release and marker",
+            "GAMEGRID_SHELL_SHA",
+            "__GAMEGRID_RELEASE_VERSION__",
+            "release-version.json",
         ):
             self.assertIn(required, source)
         self.assertNotIn('build_catalog_v3.py', source)

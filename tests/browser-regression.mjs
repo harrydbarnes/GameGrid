@@ -135,6 +135,12 @@ function startServer() {
   const active = useGenerated
     ? { manifest: generatedManifest, richIds: generatedRichIds(generatedManifest), files: null, mode: 'generated' }
     : { ...fixture, mode: 'fixture' };
+  let releaseVersion = active.mode === 'generated' ? 'generated-release-a' : 'fixture-release-a';
+  if (active.mode === 'generated') {
+    const shell = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const match = shell.match(/GAMEGRID_RELEASE_VERSION="([^"]+)"/);
+    if (match?.[1] && !match[1].includes('__GAMEGRID_RELEASE_VERSION__')) releaseVersion = match[1];
+  }
   const server = http.createServer((request, response) => {
     const pathname = decodeURIComponent(new URL(request.url || '/', 'http://127.0.0.1').pathname);
     if (pathname === '/catalog-manifest.js') {
@@ -142,10 +148,22 @@ function startServer() {
       response.end(manifestSource(active.manifest));
       return;
     }
+    if (pathname === '/release-version.json') {
+      response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify({ version: releaseVersion }));
+      return;
+    }
     const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
     if (active.files?.[relative]) {
       response.writeHead(200, { 'content-type': contentType(relative) });
       response.end(active.files[relative]);
+      return;
+    }
+    if (relative === 'index.html') {
+      let source = fs.readFileSync(path.join(ROOT, relative), 'utf8');
+      source = source.replace('__GAMEGRID_RELEASE_VERSION__', releaseVersion);
+      response.writeHead(200, { 'content-type': contentType(relative) });
+      response.end(source);
       return;
     }
     const target = path.resolve(ROOT, relative);
@@ -164,10 +182,25 @@ function startServer() {
       resolve({
         base: `http://127.0.0.1:${address.port}/`,
         active,
+        setReleaseVersion: value => { releaseVersion = value; },
         close: () => new Promise(done => server.close(done)),
       });
     });
   });
+}
+
+async function releaseVersionPrompt(browser, server) {
+  const { context, page } = await boot(browser, server);
+  assert.equal(await page.locator('.update-prompt').count(), 0);
+  server.setReleaseVersion('fixture-release-b');
+  await page.evaluate(() => window.GameGridRelease?.check?.());
+  await page.locator('.update-prompt').waitFor();
+  assert.match(await page.locator('.update-prompt').innerText(), /New version available.*refresh/i);
+  await page.getByRole('button', { name: 'Refresh' }).click();
+  await page.waitForURL(/release=fixture-release-b/);
+  await page.waitForSelector('#grid');
+  assert.equal(await page.locator('.update-prompt').count(), 0);
+  await context.close();
 }
 
 async function boot(browser, server, options = {}) {
@@ -374,6 +407,7 @@ const tests = [
   ['answer search on a mobile viewport', mobileAnswerSearch],
   ['deferred details fallback', deferredDetailsFailure],
   ['stale asset mismatch', staleAssetMismatch],
+  ['release version prompt', releaseVersionPrompt],
 ];
 
 async function main() {
