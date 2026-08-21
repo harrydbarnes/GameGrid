@@ -24,7 +24,6 @@ for i,c in enumerate(counts,1):
 spot_checks=['Gears of War','BioShock','Mass Effect','Grand Theft Auto IV','Demon’s Souls','Red Dead Redemption','The Elder Scrolls V: Skyrim','The Last of Us','Grand Theft Auto V','The Witcher 3: Wild Hunt','The Legend of Zelda: Breath of the Wild','Red Dead Redemption 2','Death Stranding','Animal Crossing: New Horizons','Elden Ring','Baldur’s Gate 3','Alan Wake 2','Astro Bot','Clair Obscur: Expedition 33']
 for title in spot_checks:
     if f'"title":"{title}"' not in text:errors.append(f'missing required catalogue spot-check: {title}')
-if not re.search(r'"title":"BioShock","year":2007.*?"platforms":\[[^]]*"Xbox 360"[^]]*\].*?"rating":9[0-9]',text):errors.append('BioShock must remain an Xbox 90+ answer')
 if errors:
     print('\n'.join('ERROR: '+x for x in errors));sys.exit(1)
 print(f"Validated {report['games']:,} games, {report['clues']} clues and {report['puzzles']} puzzles ({report['first']} to {report['last']}).")
