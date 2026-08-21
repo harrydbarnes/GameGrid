@@ -36,6 +36,11 @@ class CatalogueVersioningTests(unittest.TestCase):
         self.assertIn('importScripts(INDEX_ASSET)', worker)
         self.assertIn("type:'results'", worker)
 
+    def test_pair_sets_are_translated_from_positions_to_game_ids(self):
+        games = [{'id': 'first'}, {'id': 'second'}]
+        pair_sets = {('row', 'col'): {1}}
+        self.assertEqual(catalog.game_ids_for_pair(games, pair_sets, 'row', 'col'), {'second'})
+
 
 if __name__ == '__main__':
     unittest.main()

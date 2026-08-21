@@ -116,6 +116,11 @@ def pair_lookup(pair_sets,a,b):
     return pair_sets.get((a,b) if a<b else (b,a),set())
 
 
+def game_ids_for_pair(games,pair_sets,a,b):
+    """Translate v2's positional pair-set members back to stable game IDs."""
+    return {games[index]['id'] for index in pair_lookup(pair_sets,a,b)}
+
+
 def scale_for(scoped_games):
     # The original limits were calibrated for a 6,000-game catalogue.  Grow
     # them sub-linearly: a larger index gets broader answer pools without
@@ -194,7 +199,7 @@ def generate(games):
             p=make_puzzle(mode,d,pid,recent,pool,pair_sets,rng,len(scoped_ids),family_usage);pid+=1
             for row in p['rows']:
                 for col in p['cols']:
-                    puzzle_game_ids.update(pair_lookup(pair_sets,row,col))
+                    puzzle_game_ids.update(game_ids_for_pair(games,pair_sets,row,col))
             for criterion in p['rows']+p['cols']:
                 family_usage[clue_family(next(spec for spec in pool if spec['id']==criterion))]+=1
             mode_ps.append(p);recent=(recent+[tuple(p['rows']+p['cols'])])[-45:];d+=dt.timedelta(days=1)
