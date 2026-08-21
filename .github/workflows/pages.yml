@@ -35,7 +35,8 @@ jobs:
         run: |
           cd scripts
           python build_catalog_v3.py
-          mv data.js ../data.js
+          mv data*.js ../
+          mv catalog-manifest.js ../catalog-manifest.js
           mv catalog-report.json ../catalog-report.json
       - name: Add free IGDB cover artwork
         env:

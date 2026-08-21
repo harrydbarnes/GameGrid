@@ -7,7 +7,8 @@ import json, os, re, sys, time, urllib.parse, urllib.request
 
 CLIENT_ID=os.getenv('IGDB_CLIENT_ID','').strip()
 CLIENT_SECRET=os.getenv('IGDB_CLIENT_SECRET','').strip()
-DATA=os.path.join(os.path.dirname(__file__),'..','data.js')
+ROOT=os.path.join(os.path.dirname(__file__),'..')
+MANIFEST=os.path.join(ROOT,'catalog-manifest.js')
 
 if not CLIENT_ID or not CLIENT_SECRET:
     print('IGDB credentials not configured; cover enrichment skipped.')
@@ -21,6 +22,10 @@ token=post('https://id.twitch.tv/oauth2/token?'+urllib.parse.urlencode({'client_
 if not token:raise RuntimeError('Could not obtain IGDB access token')
 headers={'Client-ID':CLIENT_ID,'Authorization':'Bearer '+token,'Accept':'application/json','Content-Type':'text/plain'}
 
+manifest=open(MANIFEST,encoding='utf-8').read()
+match=re.search(r'window\.GAMEGRID_CATALOG_MANIFEST=(\{.*\});',manifest)
+if not match:raise RuntimeError('Could not locate generated catalogue manifest')
+DATA=os.path.join(ROOT,json.loads(match.group(1))['dataAsset'])
 text=open(DATA,encoding='utf-8').read()
 m=re.search(r'const games=(\[.*?\]);\nconst clueSpecs=',text,re.S)
 if not m:raise RuntimeError('Could not locate generated games array')

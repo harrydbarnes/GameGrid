@@ -7,7 +7,7 @@
   const p=puzzles.find(x=>x.id===id&&x.mode===mode)||puzzles.find(x=>x.id===id);
   if(!p)return;
   const storageKey=`gamegrid:${p.mode}:${p.id}`;
-  const fingerprint=[p.date,p.mode,(p.rows||[]).join(','),(p.cols||[]).join(',')].join('|');
+  const fingerprint=[p.date,p.mode,(p.rows||[]).join(','),(p.cols||[]).join(','),p.catalogHash||'',p.buildHash||''].join('|');
   const fpKey=`${storageKey}:fingerprint`;
   const priorFp=localStorage.getItem(fpKey);
   let state=null;try{state=JSON.parse(localStorage.getItem(storageKey)||'null')}catch{}

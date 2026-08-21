@@ -1,11 +1,30 @@
 #!/usr/bin/env python3
-import datetime as dt, json, random, statistics
+import datetime as dt, hashlib, json, random, statistics
 import build_catalog as base
 import build_catalog_v2 as v2
 
 START=base.START
 END=base.END
 MODES=v2.MODES
+
+
+def fingerprint(value):
+    """Return a short, stable fingerprint for a JSON-compatible value."""
+    payload=json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+    return hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]
+
+
+def catalogue_hash(games,clue_specs):
+    return fingerprint({'games':games,'clues':clue_specs})
+
+
+def version_puzzles(puzzles,expected_catalogue_hash):
+    """Stamp every puzzle with the catalogue it was generated against."""
+    build_hash=fingerprint({'catalogHash':expected_catalogue_hash,'puzzles':puzzles})
+    for puzzle in puzzles:
+        puzzle['catalogHash']=expected_catalogue_hash
+        puzzle['buildHash']=build_hash
+    return expected_catalogue_hash,build_hash
 
 
 def pair_lookup(pair_sets,a,b):
@@ -94,10 +113,18 @@ def main():
     games=base.build_games()
     if len(games)<4000:raise RuntimeError(f'Catalogue too small: {len(games)}')
     puzzles,mode_report=generate(games)
+    catalog_hash,build_hash=version_puzzles(puzzles,catalogue_hash(games,base.CLUE_SPECS))
+    data_asset=f'data.{build_hash}.js'
     clue_counts={s['id']:sum(base.match(g,s) for g in games) for s in base.CLUE_SPECS}
-    out="window.GAMEGRID_DATA=(()=>{\nconst games="+json.dumps(games,separators=(',',':'),ensure_ascii=False)+";\n"+base.js_clues()+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:{gameCount:games.length,clueCount:clueSpecs.length,puzzleCount:puzzles.length,modes:"+json.dumps(MODES)+",source:'PlayMyData (IGDB-derived)',generated:new Date().toISOString()}};\n})();\n"
-    open('data.js','w',encoding='utf-8').write(out)
-    report={'games':len(games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'selection':'all eligible source records (no popularity cap)','essentialBackfill':len(base.ESSENTIAL_GAMES)}
+    meta={'gameCount':len(games),'clueCount':len(base.CLUE_SPECS),'puzzleCount':len(puzzles),'modes':MODES,'source':'PlayMyData (IGDB-derived)','catalogHash':catalog_hash,'buildHash':build_hash,'dataAsset':data_asset}
+    out="window.GAMEGRID_DATA=(()=>{\nconst games="+json.dumps(games,separators=(',',':'),ensure_ascii=False)+";\n"+base.js_clues()+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:"+json.dumps(meta,separators=(',',':'))+"};\n})();\n"
+    open(data_asset,'w',encoding='utf-8').write(out)
+    manifest={'catalogHash':catalog_hash,'buildHash':build_hash,'dataAsset':data_asset}
+    open('catalog-manifest.js','w',encoding='utf-8').write('window.GAMEGRID_CATALOG_MANIFEST='+json.dumps(manifest,separators=(',',':'))+';\n')
+    # Keep index.html stable while making its parser-blocking data hook load the
+    # current manifest and its immutable, fingerprinted payload.
+    open('data.js','w',encoding='utf-8').write("document.write('<script src=\"./catalog-manifest.js\"><\\/script><script src=\"./catalog-loader.js\"><\\/script>');\n")
+    report={'games':len(games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'selection':'all eligible source records (no popularity cap)','essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'dataAsset':data_asset}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 

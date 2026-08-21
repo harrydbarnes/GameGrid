@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
 import json,re,sys
-text=open('data.js',encoding='utf-8').read()
+manifest_text=open('catalog-manifest.js',encoding='utf-8').read()
+manifest_match=re.search(r'window\.GAMEGRID_CATALOG_MANIFEST=(\{.*\});',manifest_text)
+if not manifest_match:
+    print('ERROR: missing generated catalogue manifest');sys.exit(1)
+manifest=json.loads(manifest_match.group(1))
+asset=manifest.get('dataAsset','')
+if not re.fullmatch(r'data\.[a-f0-9]{16}\.js',asset):
+    print('ERROR: catalogue manifest does not reference a fingerprinted data asset');sys.exit(1)
+text=open(asset,encoding='utf-8').read()
 report=json.load(open('catalog-report.json'))
 errors=[]
+if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset:
+    errors.append('catalogue report and manifest disagree')
+if f'"catalogHash":"{manifest.get("catalogHash","")}"' not in text or f'"buildHash":"{manifest.get("buildHash","")}"' not in text:
+    errors.append('catalogue data and manifest disagree')
 if report['games']<20000:errors.append('expected at least 20,000 games; catalogue may have been truncated')
 if report.get('selection')!='all eligible source records (no popularity cap)':errors.append('catalogue report does not confirm uncapped source selection')
 clue_counts=report.get('clueCounts',{})
@@ -19,6 +31,10 @@ if report['last']<'2026-11-30':errors.append('puzzle schedule does not span a fe
 # generator only writes puzzles after every cell has >=3 answers; verify the generated file contains answerCounts for auditability
 counts=re.findall(r'"answerCounts":\[([^]]+)\]',text)
 if len(counts)!=report['puzzles']:errors.append('missing puzzle validation counts')
+if len(re.findall(r'"catalogHash":"'+re.escape(manifest.get('catalogHash',''))+r'"',text))!=report['puzzles']+1:
+    errors.append('every puzzle must carry the catalogue hash')
+if len(re.findall(r'"buildHash":"'+re.escape(manifest.get('buildHash',''))+r'"',text))!=report['puzzles']+1:
+    errors.append('every puzzle must carry the build hash')
 for i,c in enumerate(counts,1):
     nums=[int(x) for x in c.split(',')]
     if len(nums)!=9 or min(nums)<3:errors.append(f'puzzle {i} contains a weak/impossible cell')
