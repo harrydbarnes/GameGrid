@@ -20,6 +20,13 @@ search_text=open(search_asset,encoding='utf-8').read()
 details_text=open(details_asset,encoding='utf-8').read()
 report=json.load(open('catalog-report.json'))
 errors=[]
+details_hash=manifest.get('detailsHash')
+if not re.fullmatch(r'[a-f0-9]{16}',details_hash or ''):
+    errors.append('catalogue manifest is missing the final details hash')
+else:
+    expected_details_hash=puzzle_rules.content_fingerprint(details_text)
+    if details_hash!=expected_details_hash or details_asset!=f'details.{expected_details_hash}.js':
+        errors.append('deferred details asset filename does not fingerprint its final bytes')
 try:
     actual_asset_sizes=puzzle_rules.asset_sizes({
         'dataAsset':asset,
@@ -55,10 +62,12 @@ clues_match=re.search(r'const clueSpecs=(\[.*?\]);\nconst clues=',text,re.S)
 if not clues_match:
     print('ERROR: unable to read clue definitions from generated catalogue asset');sys.exit(1)
 clue_specs={spec['id']:spec for spec in json.loads(clues_match.group(1))}
-if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset or report.get('indexAsset')!=index_asset or report.get('searchAsset')!=search_asset or report.get('detailsAsset')!=details_asset:
+if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset or report.get('indexAsset')!=index_asset or report.get('searchAsset')!=search_asset or report.get('detailsAsset')!=details_asset or report.get('detailsHash')!=details_hash:
     errors.append('catalogue report and manifest disagree')
 if f'"catalogHash":"{manifest.get("catalogHash","")}"' not in text or f'"buildHash":"{manifest.get("buildHash","")}"' not in text:
     errors.append('catalogue data and manifest disagree')
+if f'"detailsAsset":"{details_asset}"' not in text:
+    errors.append('catalogue data and manifest details assets disagree')
 if report.get('puzzleGameCount')!=len(puzzle_games):
     errors.append('catalogue report puzzle bootstrap count does not match generated data')
 if not {game['id'] for game in puzzle_games}.issubset({game['id'] for game in games}):

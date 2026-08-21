@@ -31,6 +31,8 @@ GameGrid can enrich the production catalogue with real cover artwork from IGDB a
 
 `scripts/enrich_covers.py` uses those secrets only inside GitHub Actions, retrieves IGDB cover image IDs for the generated catalogue, and adds public IGDB Image CDN URLs to the deployed data. The credentials are never included in the GitHub Pages JavaScript. The catalogue workflow persists a positive and negative ID lookup map in an Actions cache keyed by `catalogHash`; a new catalogue restores the latest map and asks IGDB only about unseen IDs. If the secrets are absent, deployment still succeeds and the existing letter-art fallback is used.
 
+The deferred details asset is content-fingerprinted from its final serialized bytes. Cover enrichment rewrites the puzzle bootstrap pointer, manifest and report together, then removes the pre-enrichment filename, so a changed cover map cannot be served from an old details URL.
+
 ## Local development
 
 Serve the repository with any static web server:

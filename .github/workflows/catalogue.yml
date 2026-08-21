@@ -14,6 +14,7 @@ on:
       - 'scripts/enrich_covers.py'
       - 'scripts/validate_catalog.py'
       - 'scripts/test_catalog_*.py'
+      - 'scripts/test_details_fingerprinting.py'
       - 'scripts/test_mode_scopes.py'
       - 'scripts/test_puzzle_rules.py'
       - '.github/workflows/catalogue.yml'
@@ -73,6 +74,8 @@ jobs:
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
           IGDB_COVER_CACHE_FILE: .cache/igdb-covers/cover-map.json
         run: python scripts/enrich_covers.py
+      - name: Test final details fingerprint
+        run: python scripts/test_details_fingerprinting.py
       - name: Validate catalogue, asset budgets and every puzzle intersection
         run: python scripts/validate_catalog.py
       - name: Save IGDB cover cache

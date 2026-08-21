@@ -30,6 +30,15 @@ class CatalogueVersioningTests(unittest.TestCase):
         self.assertEqual(assets['searchAsset'], 'search.0123456789abcdef.js')
         self.assertEqual(assets['detailsAsset'], 'details.0123456789abcdef.js')
 
+    def test_details_filename_is_based_on_final_asset_bytes(self):
+        first = 'window.GAMEGRID_DETAILS={"games":{}};\n'
+        second = 'window.GAMEGRID_DETAILS={"games":{"1":{"coverUrl":"cover"}}};\n'
+        self.assertEqual(
+            catalog.details_asset_name(first),
+            f'details.{catalog.content_fingerprint(first)}.js',
+        )
+        self.assertNotEqual(catalog.details_asset_name(first), catalog.details_asset_name(second))
+
     def test_search_worker_imports_the_fingerprinted_index(self):
         worker = catalog.search_worker('index.0123456789abcdef.js')
         self.assertIn("const INDEX_ASSET=\"./index.0123456789abcdef.js\"", worker)

@@ -9,7 +9,7 @@ new game IDs.
 import json, os, re, sys, time, urllib.parse, urllib.request
 from pathlib import Path
 
-from build_catalog_v3 import asset_sizes
+from build_catalog_v3 import asset_sizes, content_fingerprint, details_asset_name
 
 
 CACHE_VERSION = 1
@@ -74,6 +74,61 @@ def set_output(name, value):
         return
     with open(output, 'a', encoding='utf-8') as handle:
         handle.write(f'{name}={value}\n')
+
+
+def _atomic_write(path, text):
+    target = Path(path)
+    temporary = target.with_name(f'{target.name}.{os.getpid()}.tmp')
+    temporary.write_text(text, encoding='utf-8')
+    os.replace(temporary, target)
+
+
+def finalize_details_asset(details_text, assets, root=ROOT, manifest_path=MANIFEST):
+    """Publish the final details bytes under a content-derived filename.
+
+    The generated puzzle bootstrap contains the details filename in its meta
+    object, so both that pointer and the manifest are updated together. The
+    pre-enrichment file is removed after the final file is safely written;
+    otherwise a stale fingerprint could be uploaded alongside the new one.
+    """
+    root_path = Path(root)
+    old_name = assets.get('detailsAsset')
+    data_name = assets.get('dataAsset')
+    if not isinstance(old_name, str) or not old_name:
+        raise RuntimeError('Generated catalogue manifest is missing detailsAsset')
+    if not isinstance(data_name, str) or not data_name:
+        raise RuntimeError('Generated catalogue manifest is missing dataAsset')
+
+    details_source = root_path / old_name
+    details_target_name = details_asset_name(details_text)
+    details_target = root_path / details_target_name
+    data_path = root_path / data_name
+    data_text = data_path.read_text(encoding='utf-8')
+    old_marker = '"detailsAsset":' + json.dumps(old_name, separators=(',', ':'))
+    new_marker = '"detailsAsset":' + json.dumps(details_target_name, separators=(',', ':'))
+    if old_marker not in data_text:
+        raise RuntimeError(f'Puzzle bootstrap does not point to {old_name}')
+    updated_data = data_text.replace(old_marker, new_marker, 1)
+
+    _atomic_write(details_target, details_text)
+    if details_source != details_target and details_source.exists():
+        details_source.unlink()
+    if updated_data != data_text:
+        _atomic_write(data_path, updated_data)
+
+    manifest_path = Path(manifest_path)
+    manifest_text = manifest_path.read_text(encoding='utf-8')
+    manifest_match = re.search(r'window\.GAMEGRID_CATALOG_MANIFEST=(\{.*\});', manifest_text)
+    if not manifest_match:
+        raise RuntimeError('Could not locate generated catalogue manifest')
+    assets['detailsAsset'] = details_target_name
+    assets['detailsHash'] = content_fingerprint(details_text)
+    updated_manifest = manifest_text[:manifest_match.start(1)] + json.dumps(
+        assets,
+        separators=(',', ':'),
+    ) + manifest_text[manifest_match.end(1):]
+    _atomic_write(manifest_path, updated_manifest)
+    return details_target_name
 
 
 def post(url, data, headers=None):
@@ -161,11 +216,14 @@ def enrich():
             details['games'].setdefault(game['id'], {})['coverUrl'] = 'https://images.igdb.com/igdb/image/upload/t_cover_big/' + image + '.jpg'
 
     new_details = json.dumps(details, separators=(',', ':'), ensure_ascii=False)
-    Path(details_path).write_text(details_text[:details_match.start(1)] + new_details + details_text[details_match.end(1):], encoding='utf-8')
+    final_details_text = details_text[:details_match.start(1)] + new_details + details_text[details_match.end(1):]
+    finalize_details_asset(final_details_text, assets, root=ROOT, manifest_path=MANIFEST)
     save_cover_cache(cache_path, catalog_hash, covers, checked)
     set_output('cache-updated', 'true')
     if os.path.exists(REPORT):
         report = json.loads(Path(REPORT).read_text(encoding='utf-8'))
+        report['detailsAsset'] = assets['detailsAsset']
+        report['detailsHash'] = assets['detailsHash']
         report['assetSizes'] = asset_sizes(assets, ROOT)
         Path(REPORT).write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(f'Added real IGDB artwork to {len(covers)} of {len(games)} games; queried {queried} new IDs and reused {len(ids) - queried} cached IDs.')

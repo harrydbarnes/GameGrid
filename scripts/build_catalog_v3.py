@@ -81,6 +81,17 @@ def fingerprint(value):
     return hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]
 
 
+def content_fingerprint(value):
+    """Return a short fingerprint for the exact bytes published to clients."""
+    payload=value.encode('utf-8') if isinstance(value,str) else bytes(value)
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
+def details_asset_name(details_text):
+    """Name the deferred details asset from its final serialized contents."""
+    return f'details.{content_fingerprint(details_text)}.js'
+
+
 def catalogue_hash(games,clue_specs):
     return fingerprint({'games':games,'clues':clue_specs})
 
@@ -275,21 +286,25 @@ def main():
     # explains the playable puzzle pool without conflating the two.
     clue_counts={s['id']:sum(base.match(g,s) for g in games) for s in base.CLUE_SPECS}
     playable_clue_counts={s['id']:sum(base.match(g,s) for g in playable_games) for s in base.CLUE_SPECS}
+    details_payload={'catalogHash':catalog_hash,'buildHash':build_hash,'games':detail_index(games)}
+    details_text='window.GAMEGRID_DETAILS='+json.dumps(details_payload,separators=(',',':'),ensure_ascii=False)+';\n'
+    assets['detailsAsset']=details_asset_name(details_text)
+    details_hash=content_fingerprint(details_text)
     meta={'gameCount':len(games),'puzzleGameCount':len(puzzle_games),'playableGameCount':len(playable_games),'clueCount':len(base.CLUE_SPECS),'puzzleCount':len(puzzles),'modes':MODES,'source':'PlayMyData (IGDB-derived)','catalogHash':catalog_hash,'buildHash':build_hash,**assets}
     puzzle_index=json.dumps(compact_index(puzzle_games),separators=(',',':'),ensure_ascii=False)
     out="window.GAMEGRID_DATA=(()=>{\nconst games="+puzzle_index+".map(([id,title,year,platforms,tags,rating,ratingsCount])=>({id,title,year,platforms,tags,rating,ratingsCount,developers:[],publishers:[]}));\n"+base.js_clues()+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:"+json.dumps(meta,separators=(',',':'))+"};\n})();\n"
     open(data_asset,'w',encoding='utf-8').write(out)
     open(assets['indexAsset'],'w',encoding='utf-8').write('globalThis.GAMEGRID_INDEX='+json.dumps(compact_index(games),separators=(',',':'),ensure_ascii=False)+';\n')
     open(assets['searchAsset'],'w',encoding='utf-8').write(search_worker(assets['indexAsset']))
-    open(assets['detailsAsset'],'w',encoding='utf-8').write('window.GAMEGRID_DETAILS='+json.dumps({'catalogHash':catalog_hash,'buildHash':build_hash,'games':detail_index(games)},separators=(',',':'),ensure_ascii=False)+';\n')
+    open(assets['detailsAsset'],'w',encoding='utf-8').write(details_text)
     sizes=asset_sizes(assets)
     enforce_performance_budgets(sizes)
-    manifest={'catalogHash':catalog_hash,'buildHash':build_hash,**assets}
+    manifest={'catalogHash':catalog_hash,'buildHash':build_hash,'detailsHash':details_hash,**assets}
     open('catalog-manifest.js','w',encoding='utf-8').write('window.GAMEGRID_CATALOG_MANIFEST='+json.dumps(manifest,separators=(',',':'))+';\n')
     # Keep index.html stable while making its parser-blocking data hook load the
     # current manifest and its immutable, fingerprinted payload.
     open('data.js','w',encoding='utf-8').write("document.write('<script src=\"./catalog-manifest.js\"><\\/script><script src=\"./catalog-loader.js\"><\\/script>');\n")
-    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
+    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'detailsHash':details_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 

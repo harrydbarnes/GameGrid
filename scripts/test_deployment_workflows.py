@@ -18,6 +18,7 @@ class DeploymentWorkflowTests(unittest.TestCase):
             "workflow_dispatch:",
             "build_catalog_v3.py",
             "enrich_covers.py",
+            "test_details_fingerprinting.py",
             "validate_catalog.py",
             "actions/upload-artifact@v4",
             "name: gamegrid-catalogue",
