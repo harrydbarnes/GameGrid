@@ -19,7 +19,14 @@
     if (!game || !data?.games) return null;
     const existing = data.games.find(item => item.id === game.id);
     if (existing) {
+      const developers = existing.developers;
+      const publishers = existing.publishers;
       Object.assign(existing, game);
+      // A later worker search must not erase rich fields merged by the
+      // deferred details loader. The compact index deliberately carries only
+      // empty developer/publisher placeholders.
+      if (Array.isArray(developers) && developers.length) existing.developers = developers;
+      if (Array.isArray(publishers) && publishers.length) existing.publishers = publishers;
       return existing;
     }
     data.games.push(game);

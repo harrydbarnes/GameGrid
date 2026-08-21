@@ -42,7 +42,7 @@ const context = {
       indexAsset: 'index.0123456789abcdef.js',
       searchAsset: 'search.0123456789abcdef.js',
     },
-    GAMEGRID_DATA: { games: [] },
+    GAMEGRID_DATA: { games: [{ id: 'game-1', title: 'Before', developers: ['Studio'], publishers: ['Publisher'], coverUrl: 'cover' }] },
   },
   document,
   Worker: WorkerStub,
@@ -64,6 +64,9 @@ const results = await context.window.GameGridSearch.query('example', []);
 assert.equal(results.length, 1);
 assert.equal(results[0].id, 'game-1');
 assert.equal(context.window.GAMEGRID_DATA.games[0].title, 'Example Game');
+assert.deepEqual(context.window.GAMEGRID_DATA.games[0].developers, ['Studio']);
+assert.deepEqual(context.window.GAMEGRID_DATA.games[0].publishers, ['Publisher']);
+assert.equal(context.window.GAMEGRID_DATA.games[0].coverUrl, 'cover');
 assert.equal(dispatched[0].type, 'gamegrid:index-ready');
 
 console.log('game index loader passed');

@@ -45,6 +45,19 @@ jobs:
         run: python scripts/enrich_covers.py
       - name: Validate catalogue, asset budgets and every puzzle intersection
         run: python scripts/validate_catalog.py
+      - name: Set up Node for browser regressions
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install browser regression dependencies
+        run: npm ci
+      - name: Install Chromium for browser regressions
+        run: npx playwright install --with-deps chromium
+      - name: Run browser regression suite against generated assets
+        env:
+          GAMEGRID_BROWSER_USE_GENERATED: '1'
+        run: npm run test:browser
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload static site

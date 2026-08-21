@@ -41,6 +41,8 @@ python -m http.server 8000
 
 For the full production-sized dataset, run the generator/validator scripts before starting the server. The production build requires internet access because it retrieves upstream data.
 
+The focused browser regression suite covers malformed local storage, stats import/reset, the first deferred-details interaction, mobile answer search and stale catalogue assets. Run `npm ci`, `npx playwright install chromium` and `npm run test:browser`; CI runs it against the generated fingerprinted assets after catalogue validation.
+
 ## Deployment
 
 Pushes to `main`, manual workflow dispatches and the weekly scheduled build trigger `.github/workflows/pages.yml`. The workflow generates the catalogue, optionally enriches it with IGDB artwork, validates it, uploads the static artifact and deploys through GitHub Pages.
