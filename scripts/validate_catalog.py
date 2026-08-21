@@ -28,7 +28,7 @@ if not re.search(r'window\.GAMEGRID_DETAILS=(\{.*\});',details_text,re.S):
     errors.append('unable to read deferred game-details payload')
 if 'importScripts(' not in search_text or f'./{index_asset}' not in search_text:
     errors.append('search worker does not import the fingerprinted compact index')
-puzzle_games_match=re.search(r'const games=(\[.*?\])\.map\(\[id,title,year,platforms,tags,rating,ratingsCount\]',text,re.S)
+puzzle_games_match=re.search(r'const games=(\[.*?\])\.map\(\(\[id,title,year,platforms,tags,rating,ratingsCount\]',text,re.S)
 if not puzzle_games_match:
     errors.append('unable to read the compact puzzle bootstrap data')
     puzzle_games=[]
