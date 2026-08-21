@@ -16,6 +16,22 @@ def game(title='Example', year=2020, platforms=None, tags=None, rating=80):
 
 
 class CatalogueQualityTests(unittest.TestCase):
+    def test_playable_pool_requires_complete_metadata_and_participation(self):
+        strong = game('Strong', rating=82)
+        strong['ratingsCount'] = 2
+        no_signal = game('No signal', rating=82)
+        no_signal['ratingsCount'] = 1
+        no_genre = game('No genre', rating=82)
+        no_genre['ratingsCount'] = 50
+        no_genre['tags'] = []
+        no_rating = game('No rating', rating=0)
+        no_rating['ratingsCount'] = 50
+
+        playable = quality.playable_games([strong, no_signal, no_genre, no_rating])
+
+        self.assertEqual(playable, [strong])
+        self.assertGreater(quality.playability_score(strong), quality.playability_score(no_signal))
+
     def test_metadata_coverage_reports_each_usable_field(self):
         games = [game(), game(title='Other', year=2021, rating=0)]
         coverage = quality.metadata_coverage(games)

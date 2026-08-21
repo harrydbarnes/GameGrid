@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json,re,sys
 import catalog_quality as quality
+import build_catalog_v2 as modes
 manifest_text=open('catalog-manifest.js',encoding='utf-8').read()
 manifest_match=re.search(r'window\.GAMEGRID_CATALOG_MANIFEST=(\{.*\});',manifest_text)
 if not manifest_match:
@@ -16,6 +17,7 @@ games_match=re.search(r'const games=(\[.*?\]);\nconst clueSpecs=',text,re.S)
 if not games_match:
     print('ERROR: unable to read games from generated catalogue asset');sys.exit(1)
 games=json.loads(games_match.group(1))
+playable_games=quality.playable_games(games)
 if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset:
     errors.append('catalogue report and manifest disagree')
 if f'"catalogHash":"{manifest.get("catalogHash","")}"' not in text or f'"buildHash":"{manifest.get("buildHash","")}"' not in text:
@@ -35,6 +37,8 @@ if report.get('metadataCoverage')!=coverage:
     errors.append('catalogue report metadata coverage does not match generated data')
 if report.get('platformCounts')!=quality.platform_counts(games):
     errors.append('catalogue report platform counts do not match generated data')
+if report.get('playablePool')!=quality.playable_pool_report(games):
+    errors.append('catalogue report playable-pool summary does not match generated data')
 if not 40<=report['clues']<=60:errors.append('expected 40–60 clue types')
 if report['puzzles']<90:errors.append('expected at least 90 daily puzzles')
 for mode in ('Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut'):
@@ -51,6 +55,21 @@ if len(re.findall(r'"buildHash":"'+re.escape(manifest.get('buildHash',''))+r'"',
 for i,c in enumerate(counts,1):
     nums=[int(x) for x in c.split(',')]
     if len(nums)!=9 or min(nums)<3:errors.append(f'puzzle {i} contains a weak/impossible cell')
+# Recalculate every generated intersection from the curated pool.  This makes
+# it impossible to report a curated count while accidentally using the raw
+# search index to build the puzzle.
+puzzles_match=re.search(r'const puzzles=(\[.*?\]);\nreturn ',text,re.S)
+if not puzzles_match:
+    errors.append('unable to read generated puzzles from catalogue asset')
+else:
+    indexed={}
+    for puzzle in json.loads(puzzles_match.group(1)):
+        if puzzle['mode'] not in indexed:
+            indexed[puzzle['mode']]=modes.build_index(playable_games,puzzle['mode'])[3]
+        pairs=indexed[puzzle['mode']]
+        expected=[len(modes.pair_lookup(pairs,row,col)) for row in puzzle['rows'] for col in puzzle['cols']]
+        if puzzle['answerCounts']!=expected:
+            errors.append(f'puzzle {puzzle["id"]} was not generated from the playable pool')
 # A release-era smoke test.  These titles span the requested last twenty years
 # and catch both a truncated source catalogue and an outdated source snapshot.
 spot_checks=['Gears of War','BioShock','Mass Effect','Grand Theft Auto IV','Demon’s Souls','Red Dead Redemption','The Elder Scrolls V: Skyrim','The Last of Us','Grand Theft Auto V','The Witcher 3: Wild Hunt','The Legend of Zelda: Breath of the Wild','Red Dead Redemption 2','Death Stranding','Animal Crossing: New Horizons','Elden Ring','Baldur’s Gate 3','Alan Wake 2','Astro Bot','Clair Obscur: Expedition 33']

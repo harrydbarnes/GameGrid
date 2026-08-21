@@ -25,6 +25,12 @@ PLATFORM_MINIMUMS = {
     'Xbox Series': 50,
 }
 
+# Puzzle construction needs a smaller standard than the search index: answers
+# can be obscure, but a generated intersection should be built from games with
+# enough information for a player to reasonably identify and trust them.
+MIN_PLAYABLE_PARTICIPATION = 2
+PLAYABLE_SCORE_MINIMUM = 6
+
 
 def _text(value):
     return isinstance(value, str) and bool(value.strip())
@@ -47,6 +53,55 @@ def _genres(game):
 def _rating(game):
     rating = game.get('rating')
     return isinstance(rating, (int, float)) and not isinstance(rating, bool) and rating > 0
+
+
+def _participation(game):
+    value = game.get('ratingsCount', 0)
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0 else 0
+
+
+def playability_score(game):
+    """Score the metadata which makes a title suitable for puzzle generation."""
+    score = sum((
+        _text(game.get('title')),
+        _year(game.get('year')),
+        bool(_platforms(game)),
+        bool(_genres(game)),
+        _rating(game),
+        _participation(game) >= MIN_PLAYABLE_PARTICIPATION,
+    ))
+    # Higher participation improves selection confidence, but eligibility only
+    # needs a deliberately small, non-zero signal.
+    if _participation(game) >= 10:
+        score += 1
+    if _participation(game) >= 100:
+        score += 1
+    return score
+
+
+def playable_games(games):
+    """Return the curated subset used to construct daily puzzle intersections."""
+    return [
+        game for game in games
+        if playability_score(game) >= PLAYABLE_SCORE_MINIMUM
+        and _text(game.get('title'))
+        and _year(game.get('year'))
+        and bool(_platforms(game))
+        and bool(_genres(game))
+        and _rating(game)
+        and _participation(game) >= MIN_PLAYABLE_PARTICIPATION
+    ]
+
+
+def playable_pool_report(games):
+    playable = playable_games(games)
+    return {
+        'selection': 'metadata-complete games with rating and at least 2 participation signals',
+        'minimumParticipation': MIN_PLAYABLE_PARTICIPATION,
+        'minimumScore': PLAYABLE_SCORE_MINIMUM,
+        'games': len(playable),
+        'rawGames': len(games),
+    }
 
 
 def metadata_coverage(games):
