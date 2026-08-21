@@ -46,17 +46,35 @@ if actual_asset_sizes is not None:
 index_match=re.search(r'(?:window|globalThis)\.GAMEGRID_INDEX=(\[.*\]);',index_text,re.S)
 if not index_match:
     print('ERROR: unable to read compact search index');sys.exit(1)
-games=[{'id':row[0],'title':row[1],'year':row[2],'platforms':row[3],'tags':row[4],'rating':row[5],'ratingsCount':row[6],'developers':[],'publishers':[]} for row in json.loads(index_match.group(1))]
-if not re.search(r'window\.GAMEGRID_DETAILS=(\{.*\});',details_text,re.S):
+details_match=re.search(r'window\.GAMEGRID_DETAILS=(\{.*\});',details_text,re.S)
+if not details_match:
     errors.append('unable to read deferred game-details payload')
+    detail_games={}
+else:
+    try:
+        detail_games=json.loads(details_match.group(1)).get('games',{})
+    except (TypeError,ValueError):
+        detail_games={}
+
+def compact_game(row):
+    return {'id':row[0],'title':row[1],'year':row[2],'platforms':row[3],'tags':row[4],'rating':row[5],'ratingsCount':row[6],
+            'developers':row[7] if len(row)>7 and isinstance(row[7],list) else [],
+            'publishers':row[8] if len(row)>8 and isinstance(row[8],list) else [],
+            'franchise':row[9] if len(row)>9 else ''}
+
+games=[compact_game(row) for row in json.loads(index_match.group(1))]
+for game in games:
+    details=detail_games.get(str(game['id'])) or detail_games.get(game['id']) or {}
+    for key in ('developers','publishers','franchise'):
+        if details.get(key):game[key]=details[key]
 if 'importScripts(' not in search_text or f'./{index_asset}' not in search_text:
     errors.append('search worker does not import the fingerprinted compact index')
-puzzle_games_match=re.search(r'const games=(\[.*?\])\.map\(\(\[id,title,year,platforms,tags,rating,ratingsCount\]',text,re.S)
+puzzle_games_match=re.search(r'const games=(\[.*?\])\.map\(\(\[id,title,year,platforms,tags,rating,ratingsCount(?:,developers,publishers,franchise)?\]',text,re.S)
 if not puzzle_games_match:
     errors.append('unable to read the compact puzzle bootstrap data')
     puzzle_games=[]
 else:
-    puzzle_games=[{'id':row[0],'title':row[1],'year':row[2],'platforms':row[3],'tags':row[4],'rating':row[5],'ratingsCount':row[6],'developers':[],'publishers':[]} for row in json.loads(puzzle_games_match.group(1))]
+    puzzle_games=[compact_game(row) for row in json.loads(puzzle_games_match.group(1))]
 playable_games=quality.playable_games(games)
 clues_match=re.search(r'const clueSpecs=(\[.*?\]);\nconst clues=',text,re.S)
 if not clues_match:
@@ -89,11 +107,13 @@ if report.get('platformCounts')!=quality.platform_counts(games):
     errors.append('catalogue report platform counts do not match generated data')
 if report.get('playablePool')!=quality.playable_pool_report(games):
     errors.append('catalogue report playable-pool summary does not match generated data')
-if not 40<=report['clues']<=65:errors.append('expected 40–65 clue types')
+if not 40<=report['clues']<=5000:errors.append('expected 40–5,000 clue types')
 if report['puzzles']<90:errors.append('expected at least 90 daily puzzles')
-for mode in ('Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut'):
+for mode in ('Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut','Trial'):
     if not report.get('modes',{}).get(mode,{}).get('puzzles'):
         errors.append(f'missing generated puzzles for {mode} mode')
+if report.get('modes',{}).get('Trial',{}).get('makerCriteria',0)<3:
+    errors.append('Trial mode does not have at least three usable maker criteria')
 if report['last']<'2026-11-30':errors.append('puzzle schedule does not span a few months')
 # generator only writes puzzles after every cell has >=3 answers; verify the generated file contains answerCounts for auditability
 counts=re.findall(r'"answerCounts":\[([^]]+)\]',text)
@@ -126,14 +146,20 @@ else:
             errors.append(f'puzzle {puzzle["id"]} does not use the balanced knowledge-family mix')
         if puzzle.get('difficulty')!=puzzle_rules.difficulty_for(puzzle['answerCounts']):
             errors.append(f'puzzle {puzzle["id"]} difficulty is not based on its smallest answer pool')
-        usage=family_usage.setdefault(puzzle['mode'],{family:0 for family in puzzle_rules.CORE_FAMILIES})
+        families=('maker',)+puzzle_rules.CORE_FAMILIES if puzzle['mode']=='Trial' else puzzle_rules.CORE_FAMILIES
+        usage=family_usage.setdefault(puzzle['mode'],{family:0 for family in families})
         for spec in selected_specs:
             usage[puzzle_rules.clue_family(spec)]+=1
     for mode,usage in family_usage.items():
         total=sum(usage.values())
-        for family,count in usage.items():
-            if not .19<=count/total<=.21:
-                errors.append(f'{mode} {family} criteria are not balanced: {count}/{total}')
+        if mode=='Trial':
+            maker_ratio=usage.get('maker',0)/total if total else 0
+            if not .49<=maker_ratio<=.51:
+                errors.append(f'{mode} maker criteria are not balanced: {usage.get("maker",0)}/{total}')
+        else:
+            for family,count in usage.items():
+                if not .19<=count/total<=.21:
+                    errors.append(f'{mode} {family} criteria are not balanced: {count}/{total}')
 # A release-era smoke test.  These titles span the requested last twenty years
 # and catch both a truncated source catalogue and an outdated source snapshot.
 spot_checks=['Gears of War','BioShock','Mass Effect','Grand Theft Auto IV','Demon’s Souls','Red Dead Redemption','The Elder Scrolls V: Skyrim','The Last of Us','Grand Theft Auto V','The Witcher 3: Wild Hunt','The Legend of Zelda: Breath of the Wild','Red Dead Redemption 2','Death Stranding','Animal Crossing: New Horizons','Elden Ring','Baldur’s Gate 3','Alan Wake 2','Astro Bot','Clair Obscur: Expedition 33']

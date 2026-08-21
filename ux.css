@@ -4,6 +4,7 @@ html[data-search-hints="off"] .search-results .result small{display:none}
 .share-head-btn{width:52px;height:52px;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:14px;display:grid;place-items:center;cursor:pointer;box-shadow:var(--shadow)}
 .share-head-btn:hover{border-color:var(--accent);color:var(--accent)}
 .share-head-btn svg{width:23px;height:23px;fill:currentColor}
+.puzzle-nav{display:flex;align-items:center;gap:4px}.puzzle-nav-btn{width:36px;height:36px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:24px;line-height:1;cursor:pointer}.puzzle-nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}.puzzle-nav-btn:disabled{opacity:.32;cursor:not-allowed}
 .game-status{grid-template-columns:repeat(3,1fr)!important;text-align:center}
 .game-status>div{align-items:center!important}
 .game-status>div+div{border-left:1px solid var(--line);padding-left:16px}
@@ -14,7 +15,7 @@ html[data-search-hints="off"] .search-results .result small{display:none}
 .confirm-body p{color:var(--muted);line-height:1.5;margin:0 0 24px}
 .confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .danger-btn{border:1px solid var(--bad);background:var(--bad);color:#fff;border-radius:12px;padding:13px 16px;font:inherit;font-weight:800;cursor:pointer}
-@media(max-width:620px){.share-head-btn{width:42px;height:42px;border-radius:11px}.share-head-btn svg{width:20px;height:20px}.game-status{grid-template-columns:repeat(3,1fr)!important}.game-status>div+div{padding-left:8px}.game-status strong{font-size:18px!important}.game-status .muted{font-size:10px}.confirm-actions{grid-template-columns:1fr}}
+@media(max-width:620px){.share-head-btn{width:42px;height:42px;border-radius:11px}.share-head-btn svg{width:20px;height:20px}.title-share-row .puzzle-nav{position:absolute;right:48px;top:26px;gap:3px}.title-share-row .puzzle-nav-btn{width:28px;height:32px;border-radius:9px;font-size:22px}.game-status{grid-template-columns:repeat(3,1fr)!important}.game-status>div+div{padding-left:8px}.game-status strong{font-size:18px!important}.game-status .muted{font-size:10px}.confirm-actions{grid-template-columns:1fr}}
 
 /* A bottom sheet must use the visual viewport on phones: the keyboard can
    reduce the usable height without changing the layout viewport. */

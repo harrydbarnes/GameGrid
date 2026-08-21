@@ -66,6 +66,9 @@ function makeFixture() {
   const dataAsset = source.replace(marker, `
   games.forEach(game => { game.developers = []; game.publishers = []; });
   puzzles.forEach(puzzle => Object.assign(puzzle, ${JSON.stringify(HASHES)}));
+  const futurePuzzle = { ...puzzles.filter(puzzle => puzzle.mode === 'Classic').at(-1), id: 999, date: '2099-01-01' };
+  Object.assign(futurePuzzle, ${JSON.stringify(HASHES)});
+  puzzles.push(futurePuzzle);
   return {games,clues,puzzles,meta:${JSON.stringify(meta)}};
 `);
   const rows = data.games.map(game => [
@@ -358,6 +361,36 @@ async function modeExplainer(browser, server) {
   const help = await page.locator('#infoBody').innerText();
   assert.match(help, /Modern\s+—\s+PS2 onwards/i);
   assert.match(help, /Retro\s+—\s+pre-PS2/i);
+  const trial = page.locator('.mode-tab[data-mode="Trial"]');
+  if (await trial.count()) {
+    await page.locator('#infoDialog button[aria-label="Close"]').click();
+    await trial.click();
+    await page.waitForFunction(() => document.querySelector('.mode-tab.active')?.dataset.mode === 'Trial');
+    assert.match(await page.locator('#modeLabel').innerText(), /MAKER.*FACTS/i);
+    assert.match(await page.locator('#challengeCopy').innerText(), /Rows are makers/i);
+  }
+  await context.close();
+}
+
+async function puzzleNavigation(browser, server) {
+  const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
+  const previous = page.locator('#previousPuzzleBtn');
+  const next = page.locator('#nextPuzzleBtn');
+  await previous.waitFor();
+  const current = await page.locator('#puzzleTitle').innerText();
+  const expectedNext = await page.evaluate(() => {
+    const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'Classic';
+    const id = Number((document.querySelector('#puzzleTitle')?.textContent.match(/#(\d+)/) || [])[1]);
+    const list = window.GAMEGRID_DATA.puzzles.filter(puzzle => puzzle.mode === mode).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)) || Number(a.id) - Number(b.id));
+    return list[list.findIndex(puzzle => Number(puzzle.id) === id) + 1]?.id;
+  });
+  assert.ok(expectedNext, 'fixture must provide a later grid');
+  assert.equal(await next.isDisabled(), false);
+  await next.click();
+  await page.waitForFunction(id => document.querySelector('#puzzleTitle')?.textContent.includes(`#${id}`), expectedNext);
+  assert.equal(await next.isDisabled(), true);
+  await previous.click();
+  await page.waitForFunction(title => document.querySelector('#puzzleTitle')?.textContent === title, current);
   await context.close();
 }
 
@@ -447,6 +480,7 @@ const tests = [
   ['first lazy-detail click', firstLazyDetailClick],
   ['answer search on a mobile viewport', mobileAnswerSearch],
   ['mode explainer', modeExplainer],
+  ['past and future puzzle navigation', puzzleNavigation],
   ['give up and reset split layout', splitActionLayout],
   ['deferred details fallback', deferredDetailsFailure],
   ['stale asset mismatch', staleAssetMismatch],

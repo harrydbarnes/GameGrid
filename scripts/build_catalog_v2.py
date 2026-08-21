@@ -4,7 +4,7 @@ import build_catalog as base
 
 START=base.START
 END=base.END
-MODES=['Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut']
+MODES=['Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut','Trial']
 NINTENDO={'Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES','Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS','Nintendo platform'}
 
 
@@ -19,13 +19,22 @@ def scope_ok(g,mode):
     return True
 
 
-def clue_pool(mode,counts,scoped_games=None):
+def specs_for_mode(games,mode):
+    return base.CLUE_SPECS+base.trial_specs(games) if mode=='Trial' else base.CLUE_SPECS
+
+
+def all_clue_specs(games):
+    return base.CLUE_SPECS+base.trial_specs(games)
+
+
+def clue_pool(mode,counts,scoped_games=None,specs=None):
     # A criterion should not be rejected solely because the source catalogue
     # grew.  The former fixed 5,000 ceiling was appropriate for a 6,000-game
     # sample but removed normal platform/genre clues from the complete index.
     scoped=scoped_games if scoped_games is not None else max(counts.values(),default=0)
     ceiling=max(5000,int(scoped*.95))
-    specs=[s for s in base.CLUE_SPECS if 20<=counts.get(s['id'],0)<=ceiling]
+    specs=specs or base.CLUE_SPECS
+    specs=[s for s in specs if 20<=counts.get(s['id'],0)<=ceiling or (mode=='Trial' and clue_family(s)=='maker' and counts.get(s['id'],0)>=6)]
     if mode=='Classic': return specs
     if mode=='Retro':
         excluded={'y2000s','y2010s','y2020s','post2015','switch2','ps5','ps4','xseries','xone'}
@@ -44,11 +53,14 @@ def clue_pool(mode,counts,scoped_games=None):
         return [s for s in specs if s['id'] in ids]
     if mode=='Deep Cut':
         return [s for s in specs if s['id'] not in {'pc','playstation','xbox','nintendo','rating70'}]
+    if mode=='Trial':
+        return [s for s in specs if clue_family(s)=='maker' or clue_family(s) in {'platform','genre','era','rating','title'}]
     return specs
 
 
 def clue_family(spec):
     kind=spec.get('kind','')
+    if kind in {'developer','publisher','franchise'}: return 'maker'
     if kind=='platform': return 'platform'
     if kind=='yearRange': return 'release'
     if kind=='genre': return 'genre'
@@ -115,11 +127,12 @@ def quality(ints,mode,relaxed=False):
     return abs(med-target)+(spread*0.08)
 
 
-def build_index(games,mode):
+def build_index(games,mode,specs=None):
     scoped_ids={i for i,g in enumerate(games) if scope_ok(g,mode)}
-    clue_sets={spec['id']:{i for i in scoped_ids if base.match(games[i],spec)} for spec in base.CLUE_SPECS}
+    specs=specs or specs_for_mode(games,mode)
+    clue_sets={spec['id']:{i for i in scoped_ids if base.match(games[i],spec)} for spec in specs}
     counts={cid:len(ids) for cid,ids in clue_sets.items()}
-    pool=clue_pool(mode,counts,len(scoped_ids))
+    pool=clue_pool(mode,counts,len(scoped_ids),specs)
     pair_sets={}
     for a,b in itertools.combinations(pool,2):
         pair_sets[tuple(sorted((a['id'],b['id'])))]=clue_sets[a['id']] & clue_sets[b['id']]

@@ -20,6 +20,7 @@ ALIASES={
 'id':['id','game_id'],'title':['name','title'],'date':['first_release_date','release_date','released','date'],
 'platforms':['platforms','platform_names'],'genres':['genres','genre_names'],'developers':['involved_companies','developers','developer'],
 'publishers':['publishers','publisher'],'rating':['rating','total_rating'],'ratings_count':['rating_count','total_rating_count','ratings_count','review_count'],'people_polled':['people_polled']}
+ALIASES['franchise']=['franchise','franchises','series','collection']
 
 # The research snapshot is IGDB-derived but is not live: its latest records can
 # lag recent releases.  These are deliberately limited to major, released games
@@ -145,6 +146,7 @@ def build_games():
             genres=[genre_names.get(str(x),str(x)) for x in parse_any(pick(row,'genres'),keep_numeric=True)]
             devs=parse_any(pick(row,'developers'))
             pubs=parse_any(pick(row,'publishers'))
+            franchises=parse_any(pick(row,'franchise'))
             r=num(pick(row,'rating'))
             # The source names its two participation signals review_count and
             # people_polled.  Either may be present, so retain the stronger
@@ -152,7 +154,7 @@ def build_games():
             rc=max(num(pick(row,'ratings_count')),num(pick(row,'people_polled')))
             g=merged.get(key)
             if not g:g={'id':key,'title':title,'year':yr,'platforms':[],'developers':[],'publishers':[],'tags':[],'franchise':'','rating':round(r,1),'ratingsCount':int(rc)}
-            g['platforms']=list(dict.fromkeys(g['platforms']+plats));g['tags']=list(dict.fromkeys(g['tags']+genres));g['developers']=list(dict.fromkeys(g['developers']+devs));g['publishers']=list(dict.fromkeys(g['publishers']+pubs));g['rating']=max(g['rating'],round(r,1));g['ratingsCount']=max(g['ratingsCount'],int(rc));merged[key]=g
+            g['platforms']=list(dict.fromkeys(g['platforms']+plats));g['tags']=list(dict.fromkeys(g['tags']+genres));g['developers']=list(dict.fromkeys(g['developers']+devs));g['publishers']=list(dict.fromkeys(g['publishers']+pubs));g['franchise']=g.get('franchise') or (franchises[0] if franchises else '');g['rating']=max(g['rating'],round(r,1));g['ratingsCount']=max(g['ratingsCount'],int(rc));merged[key]=g
     # Backfill major releases that post-date the fixed research snapshot.  Match
     # by normalised title and first-release year so the supplement enriches an
     # upstream record when it exists instead of creating a duplicate answer.
@@ -183,9 +185,46 @@ for cid,label,val in [('rpg','RPG','role-playing'),('shooter','Shooter','shooter
 for cid,label,n in [('rating70','Rating 65+ / 6.5+',65),('rating80','Rating 75+ / 7.5+',75),('rating85','Rating 80+ / 8+',80),('rating90','Rating 85+ / 8.5+',85)]:add(cid,label,'rating',n)
 for cid,label,kind,val in [('oneword','One-word title','titleWords',1),('shorttitle','Title under 8 characters','titleLength',7),('numbertitle','Number in the title','titleRegex',r'\d'),('lettera','Title begins A–F','titleInitial','ABCDEF'),('letterg','Title begins G–L','titleInitial','GHIJKL'),('letterm','Title begins M–R','titleInitial','MNOPQR'),('letters','Title begins S–Z','titleInitial','STUVWXYZ')]:add(cid,label,kind,val)
 
+def _maker_slug(value):
+    slug=re.sub(r'[^a-z0-9]+','-',str(value).lower()).strip('-')
+    return slug or hashlib.sha1(str(value).encode('utf-8')).hexdigest()[:10]
+
+
+def trial_specs(games,min_games=6):
+    """Build stable maker criteria for Trial from usable catalogue metadata."""
+    groups={}
+    displays={}
+    fields=(
+        ('developer','developers','Made by'),
+        ('publisher','publishers','Published by'),
+        ('franchise','franchise','Franchise'),
+    )
+    for game in games:
+        game_id=game.get('id')
+        if game_id is None:continue
+        for kind,key,prefix in fields:
+            values=game.get(key,[]) if key!='franchise' else [game.get(key)]
+            if not isinstance(values,(list,tuple)):values=[values]
+            for raw in values:
+                value=str(raw or '').strip()
+                if len(value)<2 or value.isdigit():continue
+                group_key=(kind,value.casefold())
+                groups.setdefault(group_key,set()).add(game_id)
+                displays.setdefault(group_key,value)
+    specs=[]
+    for (kind,folded),ids in sorted(groups.items(),key=lambda item:(item[0][0],item[0][1])):
+        if len(ids)<min_games:continue
+        value=displays[(kind,folded)]
+        prefix=next(prefix for candidate,key,prefix in fields if candidate==kind)
+        specs.append({'id':f'{kind}:{_maker_slug(value)}','label':f'{prefix} {value}','kind':kind,'value':value,'family':'maker'})
+    return specs
+
 
 def match(g,s):
     k=s['kind'];v=s['value']
+    if k=='developer':return v in g.get('developers',[])
+    if k=='publisher':return v in g.get('publishers',[])
+    if k=='franchise':return g.get('franchise','')==v
     if k=='platform':
         if v=='PlayStation':return any(p.startswith('PlayStation') or p in {'PSP','PS Vita'} for p in g['platforms'])
         if v=='Xbox':return any(p.startswith('Xbox') for p in g['platforms'])
@@ -230,6 +269,29 @@ def generate_puzzles(games):
 def js_clues():
     specs=json.dumps(CLUE_SPECS,separators=(',',':'),ensure_ascii=False)
     return f"const clueSpecs={specs};\nconst clues=Object.fromEntries(clueSpecs.map(s=>[s.id,{{label:s.label,test:g=>{{const k=s.kind,v=s.value;if(k==='platform'){{if(v==='PlayStation')return g.platforms.some(p=>p.startsWith('PlayStation')||['PSP','PS Vita'].includes(p));if(v==='Xbox')return g.platforms.some(p=>p.startsWith('Xbox'));if(v==='Nintendo')return g.platforms.some(p=>['Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES','Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS','Nintendo platform'].includes(p));return g.platforms.includes(v)}}if(k==='platformAny')return g.platforms.some(p=>v.includes(p));if(k==='yearRange')return g.year>=v[0]&&g.year<=v[1];if(k==='genre')return g.tags.some(t=>String(t).toLowerCase().includes(v));if(k==='rating'){{let r=g.rating||0;if(r&&r<=10)r*=10;return r>=v}}if(k==='titleWords')return (g.title.match(/[A-Za-z0-9]+/g)||[]).length===v;if(k==='titleLength')return g.title.replace(/\\W/g,'').length<=v;if(k==='titleRegex')return new RegExp(v).test(g.title);if(k==='titleInitial')return v.includes(g.title.slice(0,1).toUpperCase());return false}}}}]));"
+
+def js_clues(specs=None):
+    """Serialize fixed and dynamic criteria into the browser matcher."""
+    specs=CLUE_SPECS if specs is None else specs
+    literal=json.dumps(specs,separators=(',',':'),ensure_ascii=False)
+    return (
+        'const clueSpecs='+literal+';\n'
+        "const clues=Object.fromEntries(clueSpecs.map(s=>[s.id,{label:s.label,test:g=>{const k=s.kind,v=s.value;"
+        "if(k==='developer')return (g.developers||[]).includes(v);"
+        "if(k==='publisher')return (g.publishers||[]).includes(v);"
+        "if(k==='franchise')return String(g.franchise||'')===v;"
+        "if(k==='platform'){if(v==='PlayStation')return (g.platforms||[]).some(p=>p.startsWith('PlayStation')||['PSP','PS Vita'].includes(p));if(v==='Xbox')return (g.platforms||[]).some(p=>p.startsWith('Xbox'));if(v==='Nintendo')return (g.platforms||[]).some(p=>['Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES','Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS','Nintendo platform'].includes(p));return (g.platforms||[]).includes(v)}"
+        "if(k==='platformAny')return (g.platforms||[]).some(p=>v.includes(p));"
+        "if(k==='yearRange')return g.year>=v[0]&&g.year<=v[1];"
+        "if(k==='genre')return (g.tags||[]).some(t=>String(t).toLowerCase().includes(v));"
+        "if(k==='rating'){let r=g.rating||0;if(r&&r<=10)r*=10;return r>=v}"
+        "if(k==='titleWords')return (g.title.match(/[A-Za-z0-9]+/g)||[]).length===v;"
+        "if(k==='titleLength')return g.title.replace(/\\W/g,'').length<=v;"
+        "if(k==='titleRegex')return new RegExp(v).test(g.title);"
+        "if(k==='titleInitial')return v.includes(g.title.slice(0,1).toUpperCase());"
+        'return false}}]));'
+    )
+
 
 def main():
     games=build_games();puzzles,counts=generate_puzzles(games)

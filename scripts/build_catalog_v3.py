@@ -21,6 +21,7 @@ PERFORMANCE_BUDGETS={
 
 def clue_family(spec):
     kind=spec.get('kind','')
+    if kind in {'developer','publisher','franchise'}: return 'maker'
     if kind in {'platform','platformAny'}: return 'platform'
     if kind=='yearRange': return 'era'
     if kind=='genre': return 'genre'
@@ -38,6 +39,17 @@ def difficulty_for(answer_counts):
 
 
 def balanced_families(specs):
+    if any(clue_family(spec)=='maker' for spec in specs):
+        maker_count=sum(clue_family(spec)=='maker' for spec in specs)
+        context=[clue_family(spec) for spec in specs if clue_family(spec)!='maker']
+        return (
+            len(specs)==6
+            and maker_count==3
+            and len(context)==3
+            and len(set(context))>=2
+            and context.count('rating')<=1
+            and sum(spec.get('kind')=='titleInitial' for spec in specs)<=1
+        )
     families=[clue_family(spec) for spec in specs]
     return (
         len(specs)==6
@@ -48,6 +60,13 @@ def balanced_families(specs):
 
 def family_buckets(pool):
     return {family:[spec for spec in pool if clue_family(spec)==family] for family in CORE_FAMILIES}
+
+
+def trial_buckets(pool):
+    return {
+        'maker':[spec for spec in pool if clue_family(spec)=='maker'],
+        **{family:[spec for spec in pool if clue_family(spec)==family] for family in CORE_FAMILIES},
+    }
 
 
 def balanced_six(buckets,family_usage,rng):
@@ -73,6 +92,32 @@ def balanced_six(buckets,family_usage,rng):
         return None
     selected.append(rng.choice(candidates))
     return selected
+
+
+def trial_six(buckets,family_usage,rng):
+    """Pick three maker rows and three varied game-fact columns."""
+    makers=buckets.get('maker',[])
+    if len(makers)<3:return None
+    selected_makers=[]
+    for kind in ('developer','publisher','franchise'):
+        choices=[spec for spec in makers if spec.get('kind')==kind]
+        if choices:selected_makers.append(rng.choice(choices))
+    remaining=[spec for spec in makers if spec not in selected_makers]
+    while len(selected_makers)<3 and remaining:
+        selected_makers.append(rng.choice(remaining));remaining=[spec for spec in remaining if spec not in selected_makers]
+    if len(selected_makers)<3:return None
+    context_families=[family for family in CORE_FAMILIES if buckets.get(family)]
+    if len(context_families)<3:return None
+    context_families.sort(key=lambda family:(family_usage.get(family,0),rng.random()))
+    context_families=context_families[:3]
+    columns=[]
+    for family in context_families:
+        choices=buckets[family]
+        if family=='title':
+            substantive=[spec for spec in choices if spec.get('kind')!='titleInitial']
+            choices=substantive or choices
+        columns.append(rng.choice(choices))
+    return selected_makers+columns
 
 
 def fingerprint(value):
@@ -143,6 +188,11 @@ def compact_index(games):
     return [[g['id'],g['title'],g['year'],g['platforms'],g['tags'],g['rating'],g['ratingsCount']] for g in games]
 
 
+def compact_puzzle_index(games):
+    """Puzzle fields plus maker metadata needed by Trial intersections."""
+    return [[g['id'],g['title'],g['year'],g['platforms'],g['tags'],g['rating'],g['ratingsCount'],g.get('developers',[]),g.get('publishers',[]),g.get('franchise','')] for g in games]
+
+
 def search_worker(index_asset):
     """Search the full compact index off the main thread after first use."""
     index_literal=json.dumps('./'+index_asset)
@@ -191,32 +241,41 @@ def limits(mode,level,scoped_games):
     # Each level remains valid, but progressively relaxes puzzle aesthetics so the build never fails just because a random search is unlucky.
     if level==0:
         if mode=='Deep Cut': return 3,round(45*scale),round(18*scale),3
-        if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern'}: return 4,round(180*scale),round(30*scale),3
+        if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern','Trial'}: return 4,round(180*scale),round(24*scale),3
         return 5,round(300*scale),round(30*scale),3
     if level==1:
         if mode=='Deep Cut': return 3,round(70*scale),round(15*scale),4
-        if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern'}: return 3,round(260*scale),round(22*scale),4
+        if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern','Trial'}: return 3,round(260*scale),round(18*scale),4
         return 3,round(420*scale),round(22*scale),4
     if mode=='Deep Cut': return 3,round(120*scale),round(12*scale),6
+    if mode=='Trial': return 3,round(600*scale),round(12*scale),6
     return 3,round(600*scale),round(15*scale),6
 
 
 def score_counts(ints,mode,scoped_games):
     med=statistics.median(ints);spread=max(ints)-min(ints);target=(18 if mode=='Deep Cut' else 45)*scale_for(scoped_games)
+    if mode=='Trial':target=24*scale_for(scoped_games)
     return abs(med-target)+(spread*0.08)
 
 
 def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usage):
     if len(pool)<6:
         raise RuntimeError(f'{mode} has only {len(pool)} eligible clues; need at least 6')
-    buckets=family_buckets(pool)
+    buckets=trial_buckets(pool) if mode=='Trial' else family_buckets(pool)
     best=None
     for level,attempts in enumerate((5000,12000,25000)):
         low,high,min_distinct,max_reuse=limits(mode,level,scoped_games)
         for _ in range(attempts):
-            six=balanced_six(buckets,family_usage,rng)
+            six=trial_six(buckets,family_usage,rng) if mode=='Trial' else balanced_six(buckets,family_usage,rng)
             if not six: break
-            rng.shuffle(six);rows=six[:3];cols=six[3:];ids=[s['id'] for s in six]
+            if mode=='Trial':
+                # Trial has a deliberate axis contract: maker criteria down the
+                # left, varied game facts across the top. Standard modes keep
+                # their usual random axis rotation for variety.
+                rows=six[:3];cols=six[3:]
+            else:
+                rng.shuffle(six);rows=six[:3];cols=six[3:]
+            ids=[s['id'] for s in six]
             if not balanced_families(six):continue
             if tuple(ids) in recent:continue
             if any(r['kind']==c['kind'] and r['value']==c['value'] for r in rows for c in cols):continue
@@ -250,9 +309,11 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usag
 def generate(games):
     all_puzzles=[];report_modes={};puzzle_game_ids=set();pid=1
     for mi,mode in enumerate(MODES):
-        scoped_ids,counts,pool,pair_sets=v2.build_index(games,mode)
+        specs=v2.specs_for_mode(games,mode)
+        scoped_ids,counts,pool,pair_sets=v2.build_index(games,mode,specs)
         print(f'Generating {mode}: {len(scoped_ids)} scoped games, {len(pool)} clues')
-        rng=random.Random(260817+mi*997);recent=[];family_usage={family:0 for family in CORE_FAMILIES};d=START;mode_ps=[]
+        usage_families=('maker',)+CORE_FAMILIES if mode=='Trial' else CORE_FAMILIES
+        rng=random.Random(260817+mi*997);recent=[];family_usage={family:0 for family in usage_families};d=START;mode_ps=[]
         while d<=END:
             p=make_puzzle(mode,d,pid,recent,pool,pair_sets,rng,len(scoped_ids),family_usage);pid+=1
             for row in p['rows']:
@@ -263,7 +324,7 @@ def generate(games):
             mode_ps.append(p);recent=(recent+[tuple(p['rows']+p['cols'])])[-45:];d+=dt.timedelta(days=1)
         all_puzzles+=mode_ps
         medians=[statistics.median(p['answerCounts']) for p in mode_ps]
-        report_modes[mode]={'puzzles':len(mode_ps),'scopedGames':len(scoped_ids),'medianAnswersPerSquare':round(statistics.median(medians),1),'minAnswers':min(min(p['answerCounts']) for p in mode_ps),'maxAnswers':max(max(p['answerCounts']) for p in mode_ps),'familyUsage':family_usage,'relaxedPuzzles':sum(p.get('generationLevel',0)>0 for p in mode_ps)}
+        report_modes[mode]={'puzzles':len(mode_ps),'scopedGames':len(scoped_ids),'usableCriteria':len(pool),'makerCriteria':sum(clue_family(spec)=='maker' for spec in pool),'medianAnswersPerSquare':round(statistics.median(medians),1),'minAnswers':min(min(p['answerCounts']) for p in mode_ps),'maxAnswers':max(max(p['answerCounts']) for p in mode_ps),'familyUsage':family_usage,'relaxedPuzzles':sum(p.get('generationLevel',0)>0 for p in mode_ps)}
     all_puzzles.sort(key=lambda p:(p['date'],MODES.index(p['mode'])))
     return all_puzzles,report_modes,puzzle_game_ids
 
@@ -275,24 +336,25 @@ def main():
     # usable metadata and a small real-world participation signal shape grids.
     playable_games=quality.playable_games(games)
     if len(playable_games)<4000:raise RuntimeError(f'Playable catalogue too small: {len(playable_games)}')
+    all_specs=v2.all_clue_specs(playable_games)
     puzzles,mode_report,puzzle_game_ids=generate(playable_games)
     puzzle_games=[game for game in games if game['id'] in puzzle_game_ids]
-    catalog_hash=catalogue_hash(games,base.CLUE_SPECS)
+    catalog_hash=catalogue_hash(games,all_specs)
     _,build_hash=version_puzzles(puzzles,catalog_hash,{'puzzleGameIds':sorted(puzzle_game_ids)})
     assets=catalogue_assets(build_hash)
     data_asset=assets['dataAsset']
     # Preserve raw-index coverage telemetry separately from the curated counts
     # used by the generator. The former catches failed lookup joins; the latter
     # explains the playable puzzle pool without conflating the two.
-    clue_counts={s['id']:sum(base.match(g,s) for g in games) for s in base.CLUE_SPECS}
-    playable_clue_counts={s['id']:sum(base.match(g,s) for g in playable_games) for s in base.CLUE_SPECS}
+    clue_counts={s['id']:sum(base.match(g,s) for g in games) for s in all_specs}
+    playable_clue_counts={s['id']:sum(base.match(g,s) for g in playable_games) for s in all_specs}
     details_payload={'catalogHash':catalog_hash,'buildHash':build_hash,'games':detail_index(games)}
     details_text='window.GAMEGRID_DETAILS='+json.dumps(details_payload,separators=(',',':'),ensure_ascii=False)+';\n'
     assets['detailsAsset']=details_asset_name(details_text)
     details_hash=content_fingerprint(details_text)
-    meta={'gameCount':len(games),'puzzleGameCount':len(puzzle_games),'playableGameCount':len(playable_games),'clueCount':len(base.CLUE_SPECS),'puzzleCount':len(puzzles),'modes':MODES,'source':'PlayMyData (IGDB-derived)','catalogHash':catalog_hash,'buildHash':build_hash,**assets}
-    puzzle_index=json.dumps(compact_index(puzzle_games),separators=(',',':'),ensure_ascii=False)
-    out="window.GAMEGRID_DATA=(()=>{\nconst games="+puzzle_index+".map(([id,title,year,platforms,tags,rating,ratingsCount])=>({id,title,year,platforms,tags,rating,ratingsCount,developers:[],publishers:[]}));\n"+base.js_clues()+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:"+json.dumps(meta,separators=(',',':'))+"};\n})();\n"
+    meta={'gameCount':len(games),'puzzleGameCount':len(puzzle_games),'playableGameCount':len(playable_games),'clueCount':len(all_specs),'puzzleCount':len(puzzles),'modes':MODES,'source':'PlayMyData (IGDB-derived)','catalogHash':catalog_hash,'buildHash':build_hash,**assets}
+    puzzle_index=json.dumps(compact_puzzle_index(puzzle_games),separators=(',',':'),ensure_ascii=False)
+    out="window.GAMEGRID_DATA=(()=>{\nconst games="+puzzle_index+".map(([id,title,year,platforms,tags,rating,ratingsCount,developers,publishers,franchise])=>({id,title,year,platforms,tags,rating,ratingsCount,developers,publishers,franchise}));\n"+base.js_clues(all_specs)+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:"+json.dumps(meta,separators=(',',':'))+"};\n})();\n"
     open(data_asset,'w',encoding='utf-8').write(out)
     open(assets['indexAsset'],'w',encoding='utf-8').write('globalThis.GAMEGRID_INDEX='+json.dumps(compact_index(games),separators=(',',':'),ensure_ascii=False)+';\n')
     open(assets['searchAsset'],'w',encoding='utf-8').write(search_worker(assets['indexAsset']))
@@ -304,7 +366,7 @@ def main():
     # Keep index.html stable while making its parser-blocking data hook load the
     # current manifest and its immutable, fingerprinted payload.
     open('data.js','w',encoding='utf-8').write("document.write('<script src=\"./catalog-manifest.js\"><\\/script><script src=\"./catalog-loader.js\"><\\/script>');\n")
-    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(base.CLUE_SPECS),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'detailsHash':details_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
+    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(all_specs),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'detailsHash':details_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 

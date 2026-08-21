@@ -70,8 +70,14 @@ const clues = {
  multiplayer:{label:'Multiplayer',test:g=>g.tags.some(t=>t.includes('Multiplayer')||t==='Co-op')},
  action:{label:'Action / adventure',test:g=>g.tags.some(t=>['Action','Action-adventure'].includes(t))},
  single:{label:'Single-player',test:g=>g.tags.includes('Single-player')},
- sequel:{label:'Franchise title',test:g=>Boolean(g.franchise)}
+sequel:{label:'Franchise title',test:g=>Boolean(g.franchise)}
 };
+
+Object.assign(clues,{
+ trial_rockstar:{label:'Made by Rockstar North',test:g=>g.developers.includes('Rockstar North')},
+ trial_fromsoftware:{label:'Made by FromSoftware',test:g=>g.developers.includes('FromSoftware')},
+ trial_naughtydog:{label:'Made by Naughty Dog',test:g=>g.developers.includes('Naughty Dog')},
+});
 
 const puzzles = [
 {id:1,date:'2026-08-17',mode:'Classic',rows:['rpg','action','multiplayer'],cols:['playstation','y2010s','openworld']},
@@ -79,6 +85,12 @@ const puzzles = [
 {id:3,date:'2026-08-19',mode:'Classic',rows:['rpg','multiplayer','action'],cols:['playstation','y2020s','openworld']},
 {id:4,date:'2026-08-20',mode:'Classic',rows:['single','fps','sequel'],cols:['xbox','y2000s','pc']},
 {id:5,date:'2026-08-21',mode:'Classic',rows:['action','single','multiplayer'],cols:['nintendo','y2010s','switch']}
+,{id:101,date:'2026-08-17',mode:'Trial',rows:['trial_rockstar','trial_fromsoftware','trial_naughtydog'],cols:['playstation','y2010s','openworld']}
+,{id:102,date:'2026-08-18',mode:'Trial',rows:['trial_fromsoftware','trial_naughtydog','trial_rockstar'],cols:['pc','y2020s','single']}
+,{id:103,date:'2026-08-19',mode:'Trial',rows:['trial_naughtydog','trial_rockstar','trial_fromsoftware'],cols:['playstation','y2010s','action']}
+,{id:104,date:'2026-08-20',mode:'Trial',rows:['trial_rockstar','trial_fromsoftware','trial_naughtydog'],cols:['xbox','y2000s','multiplayer']}
+,{id:105,date:'2026-08-21',mode:'Trial',rows:['trial_fromsoftware','trial_naughtydog','trial_rockstar'],cols:['pc','y2010s','rpg']}
+,{id:199,date:'2099-01-01',mode:'Trial',rows:['trial_naughtydog','trial_rockstar','trial_fromsoftware'],cols:['playstation','y2020s','single']}
 ];
 return {games,clues,puzzles};
 })();
