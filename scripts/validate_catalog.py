@@ -2,6 +2,7 @@
 import json,re,sys
 import catalog_quality as quality
 import build_catalog_v2 as modes
+import build_catalog_v3 as puzzle_rules
 manifest_text=open('catalog-manifest.js',encoding='utf-8').read()
 manifest_match=re.search(r'window\.GAMEGRID_CATALOG_MANIFEST=(\{.*\});',manifest_text)
 if not manifest_match:
@@ -18,6 +19,10 @@ if not games_match:
     print('ERROR: unable to read games from generated catalogue asset');sys.exit(1)
 games=json.loads(games_match.group(1))
 playable_games=quality.playable_games(games)
+clues_match=re.search(r'const clueSpecs=(\[.*?\]);\nconst clues=',text,re.S)
+if not clues_match:
+    print('ERROR: unable to read clue definitions from generated catalogue asset');sys.exit(1)
+clue_specs={spec['id']:spec for spec in json.loads(clues_match.group(1))}
 if report.get('catalogHash')!=manifest.get('catalogHash') or report.get('buildHash')!=manifest.get('buildHash') or report.get('dataAsset')!=asset:
     errors.append('catalogue report and manifest disagree')
 if f'"catalogHash":"{manifest.get("catalogHash","")}"' not in text or f'"buildHash":"{manifest.get("buildHash","")}"' not in text:
@@ -63,6 +68,7 @@ if not puzzles_match:
     errors.append('unable to read generated puzzles from catalogue asset')
 else:
     indexed={}
+    family_usage={}
     for puzzle in json.loads(puzzles_match.group(1)):
         if puzzle['mode'] not in indexed:
             indexed[puzzle['mode']]=modes.build_index(playable_games,puzzle['mode'])[3]
@@ -70,6 +76,19 @@ else:
         expected=[len(modes.pair_lookup(pairs,row,col)) for row in puzzle['rows'] for col in puzzle['cols']]
         if puzzle['answerCounts']!=expected:
             errors.append(f'puzzle {puzzle["id"]} was not generated from the playable pool')
+        selected_specs=[clue_specs[criterion] for criterion in puzzle['rows']+puzzle['cols']]
+        if not puzzle_rules.balanced_families(selected_specs):
+            errors.append(f'puzzle {puzzle["id"]} does not use the balanced knowledge-family mix')
+        if puzzle.get('difficulty')!=puzzle_rules.difficulty_for(puzzle['answerCounts']):
+            errors.append(f'puzzle {puzzle["id"]} difficulty is not based on its smallest answer pool')
+        usage=family_usage.setdefault(puzzle['mode'],{family:0 for family in puzzle_rules.CORE_FAMILIES})
+        for spec in selected_specs:
+            usage[puzzle_rules.clue_family(spec)]+=1
+    for mode,usage in family_usage.items():
+        total=sum(usage.values())
+        for family,count in usage.items():
+            if not .19<=count/total<=.21:
+                errors.append(f'{mode} {family} criteria are not balanced: {count}/{total}')
 # A release-era smoke test.  These titles span the requested last twenty years
 # and catch both a truncated source catalogue and an outdated source snapshot.
 spot_checks=['Gears of War','BioShock','Mass Effect','Grand Theft Auto IV','Demon’s Souls','Red Dead Redemption','The Elder Scrolls V: Skyrim','The Last of Us','Grand Theft Auto V','The Witcher 3: Wild Hunt','The Legend of Zelda: Breath of the Wild','Red Dead Redemption 2','Death Stranding','Animal Crossing: New Horizons','Elden Ring','Baldur’s Gate 3','Alan Wake 2','Astro Bot','Clair Obscur: Expedition 33']

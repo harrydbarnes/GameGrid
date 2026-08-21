@@ -7,6 +7,60 @@ import catalog_quality as quality
 START=base.START
 END=base.END
 MODES=v2.MODES
+CORE_FAMILIES=('platform','genre','era','rating','title')
+
+
+def clue_family(spec):
+    kind=spec.get('kind','')
+    if kind in {'platform','platformAny'}: return 'platform'
+    if kind=='yearRange': return 'era'
+    if kind=='genre': return 'genre'
+    if kind=='rating': return 'rating'
+    if kind.startswith('title'): return 'title'
+    return 'other'
+
+
+def difficulty_for(answer_counts):
+    """Label a grid by its least forgiving square, never by its median."""
+    minimum=min(answer_counts,default=0)
+    if minimum>=20: return 'Easy'
+    if minimum>=8: return 'Medium'
+    return 'Hard'
+
+
+def balanced_families(specs):
+    families=[clue_family(spec) for spec in specs]
+    return (
+        len(specs)==6
+        and all(family in families for family in CORE_FAMILIES)
+        and sum(spec.get('kind')=='titleInitial' for spec in specs)<=1
+    )
+
+
+def balanced_six(pool,family_usage,rng):
+    """Pick five core knowledge families, then rotate the sixth fairly."""
+    buckets={family:[spec for spec in pool if clue_family(spec)==family] for family in CORE_FAMILIES}
+    if any(not candidates for candidates in buckets.values()):
+        return None
+    selected=[]
+    for family in CORE_FAMILIES:
+        candidates=buckets[family]
+        # Initial-letter clues are deliberately seasoning: use a substantive
+        # title property whenever one is available for the title slot.
+        if family=='title':
+            substantive=[spec for spec in candidates if spec.get('kind')!='titleInitial']
+            candidates=substantive or candidates
+        selected.append(rng.choice(candidates))
+    lowest=min(family_usage.get(family,0) for family in CORE_FAMILIES)
+    extra_families=[family for family in CORE_FAMILIES if family_usage.get(family,0)==lowest]
+    extra_family=rng.choice(extra_families)
+    candidates=[spec for spec in buckets[extra_family] if spec not in selected]
+    if extra_family=='title' and any(spec.get('kind')=='titleInitial' for spec in selected):
+        candidates=[spec for spec in candidates if spec.get('kind')!='titleInitial']
+    if not candidates:
+        return None
+    selected.append(rng.choice(candidates))
+    return selected
 
 
 def fingerprint(value):
@@ -59,14 +113,17 @@ def score_counts(ints,mode,scoped_games):
     return abs(med-target)+(spread*0.08)
 
 
-def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games):
+def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usage):
     if len(pool)<6:
         raise RuntimeError(f'{mode} has only {len(pool)} eligible clues; need at least 6')
     best=None
     for level,attempts in enumerate((5000,12000,25000)):
         low,high,min_distinct,max_reuse=limits(mode,level,scoped_games)
         for _ in range(attempts):
-            six=rng.sample(pool,6);rows=six[:3];cols=six[3:];ids=[s['id'] for s in six]
+            six=balanced_six(pool,family_usage,rng)
+            if not six: break
+            rng.shuffle(six);rows=six[:3];cols=six[3:];ids=[s['id'] for s in six]
+            if not balanced_families(six):continue
             if tuple(ids) in recent:continue
             if any(r['kind']==c['kind'] and r['value']==c['value'] for r in rows for c in cols):continue
             cells=[pair_lookup(pair_sets,r['id'],c['id']) for r in rows for c in cols]
@@ -89,8 +146,7 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games):
     if not best:
         raise RuntimeError(f'Could not build a valid {mode} puzzle for {date} after progressive search')
     q,rows,cols,ints,distinct,level=best
-    med=statistics.median(ints)
-    difficulty='Hard' if mode=='Deep Cut' or med<18 else ('Easy' if med>70 else 'Medium')
+    difficulty=difficulty_for(ints)
     return {'id':pid,'date':date.isoformat(),'mode':mode,'scope':mode,'difficulty':difficulty,'rows':[x['id'] for x in rows],'cols':[x['id'] for x in cols],'answerCounts':ints,'solutionPool':distinct,'qualityScore':round(q-(level*100),2),'generationLevel':level}
 
 
@@ -99,13 +155,15 @@ def generate(games):
     for mi,mode in enumerate(MODES):
         scoped_ids,counts,pool,pair_sets=v2.build_index(games,mode)
         print(f'Generating {mode}: {len(scoped_ids)} scoped games, {len(pool)} clues')
-        rng=random.Random(260817+mi*997);recent=[];d=START;mode_ps=[]
+        rng=random.Random(260817+mi*997);recent=[];family_usage={family:0 for family in CORE_FAMILIES};d=START;mode_ps=[]
         while d<=END:
-            p=make_puzzle(mode,d,pid,recent,pool,pair_sets,rng,len(scoped_ids));pid+=1
+            p=make_puzzle(mode,d,pid,recent,pool,pair_sets,rng,len(scoped_ids),family_usage);pid+=1
+            for criterion in p['rows']+p['cols']:
+                family_usage[clue_family(next(spec for spec in pool if spec['id']==criterion))]+=1
             mode_ps.append(p);recent=(recent+[tuple(p['rows']+p['cols'])])[-45:];d+=dt.timedelta(days=1)
         all_puzzles+=mode_ps
         medians=[statistics.median(p['answerCounts']) for p in mode_ps]
-        report_modes[mode]={'puzzles':len(mode_ps),'scopedGames':len(scoped_ids),'medianAnswersPerSquare':round(statistics.median(medians),1),'minAnswers':min(min(p['answerCounts']) for p in mode_ps),'maxAnswers':max(max(p['answerCounts']) for p in mode_ps),'relaxedPuzzles':sum(p.get('generationLevel',0)>0 for p in mode_ps)}
+        report_modes[mode]={'puzzles':len(mode_ps),'scopedGames':len(scoped_ids),'medianAnswersPerSquare':round(statistics.median(medians),1),'minAnswers':min(min(p['answerCounts']) for p in mode_ps),'maxAnswers':max(max(p['answerCounts']) for p in mode_ps),'familyUsage':family_usage,'relaxedPuzzles':sum(p.get('generationLevel',0)>0 for p in mode_ps)}
     all_puzzles.sort(key=lambda p:(p['date'],MODES.index(p['mode'])))
     return all_puzzles,report_modes
 
