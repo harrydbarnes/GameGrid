@@ -378,17 +378,18 @@ async function puzzleNavigation(browser, server) {
   const next = page.locator('#nextPuzzleBtn');
   await previous.waitFor();
   const current = await page.locator('#puzzleTitle').innerText();
-  const expectedNext = await page.evaluate(() => {
+  const navigation = await page.evaluate(() => {
     const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'Classic';
     const id = Number((document.querySelector('#puzzleTitle')?.textContent.match(/#(\d+)/) || [])[1]);
     const list = window.GAMEGRID_DATA.puzzles.filter(puzzle => puzzle.mode === mode).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)) || Number(a.id) - Number(b.id));
-    return list[list.findIndex(puzzle => Number(puzzle.id) === id) + 1]?.id;
+    const index = list.findIndex(puzzle => Number(puzzle.id) === id);
+    return { expectedNext: list[index + 1]?.id, nextIsLast: index + 1 === list.length - 1 };
   });
-  assert.ok(expectedNext, 'fixture must provide a later grid');
+  assert.ok(navigation.expectedNext, 'fixture must provide a later grid');
   assert.equal(await next.isDisabled(), false);
   await next.click();
-  await page.waitForFunction(id => document.querySelector('#puzzleTitle')?.textContent.includes(`#${id}`), expectedNext);
-  assert.equal(await next.isDisabled(), true);
+  await page.waitForFunction(id => document.querySelector('#puzzleTitle')?.textContent.includes(`#${id}`), navigation.expectedNext);
+  assert.equal(await next.isDisabled(), navigation.nextIsLast);
   await previous.click();
   await page.waitForFunction(title => document.querySelector('#puzzleTitle')?.textContent === title, current);
   await context.close();
