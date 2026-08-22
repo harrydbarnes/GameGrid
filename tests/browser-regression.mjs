@@ -336,6 +336,8 @@ async function mobileAnswerSearch(browser, server) {
   await page.locator('#grid .cell.empty').first().click();
   await page.locator('#searchDialog[open]').waitFor();
   await indexLoaded;
+  assert.equal(await page.locator('#searchResults .result').count(), 0);
+  assert.match(await page.locator('#searchResults').innerText(), /Start typing to search games/i);
   await page.locator('#gameSearch').fill('BioShock');
   const result = page.locator('.result').filter({ hasText: 'BioShock' }).first();
   await result.waitFor();

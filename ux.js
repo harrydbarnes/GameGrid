@@ -73,6 +73,17 @@
   // immediately below the text field, where it remains readable on desktop and
   // mobile bottom-sheet layouts.
   const searchDialog=$('#searchDialog'),searchBox=searchDialog?.querySelector('.search-box'),searchInput=$('#gameSearch'),toast=$('#toast');
+  const searchResults=$('#searchResults');
+  if(searchDialog&&searchInput&&searchResults){
+    const emptyPrompt='Start typing to search games…';
+    const hideEmptySearchResults=()=>{
+      if(searchInput.value.trim()||searchResults.textContent.trim()===emptyPrompt&&!searchResults.querySelector('.result'))return;
+      searchResults.innerHTML=`<p class="muted search-prompt">${emptyPrompt}</p>`;
+    };
+    new MutationObserver(hideEmptySearchResults).observe(searchResults,{subtree:true,childList:true,characterData:true});
+    searchInput.addEventListener('input',hideEmptySearchResults);
+    document.addEventListener('click',event=>{if(event.target.closest?.('#grid .cell.empty'))queueMicrotask(hideEmptySearchResults)},true);
+  }
   if(searchDialog&&searchBox&&toast){
     const feedback=document.createElement('p');
     feedback.className='search-feedback';feedback.hidden=true;feedback.setAttribute('role','alert');
