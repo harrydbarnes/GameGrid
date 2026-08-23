@@ -7,6 +7,9 @@ on:
       - '*.html'
       - '*.js'
       - '*.css'
+      - 'tests/browser-regression.mjs'
+      - 'package.json'
+      - 'package-lock.json'
       - 'site.webmanifest'
       - 'favicon.svg'
   workflow_dispatch:

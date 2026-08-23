@@ -289,6 +289,8 @@ async function statsNormalisationAndReset(browser, server) {
     completed: ['Classic:1', 'Classic:1'],
     history: [{ token: 'Classic:1', id: 1, mode: 'Classic', date: '2026-08-23', solved: 9, win: true, guessesUsed: 1, timeSec: 10, rarity: 20 }, { broken: true }],
   };
+  // Exercise the persisted-data normaliser directly. Synthetic file uploads have
+  // proved browser-dependent in CI, while the import handler uses this same store.
   assert.equal(await page.evaluate(value => window.GameGridStats.write(value), backup), true);
   await page.waitForFunction(() => window.GameGridStats.read().played === 3);
   const imported = await page.evaluate(() => window.GameGridStats.read());
