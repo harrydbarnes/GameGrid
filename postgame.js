@@ -4,7 +4,7 @@
   const RARITY=window.GameGridRarity;
   const NINTENDO=new Set(['Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES','Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS','Nintendo platform']);
   function currentMode(){return document.querySelector('.mode-tab.active')?.dataset.mode||'Classic'}
-  function currentPuzzle(){const id=Number((($('#puzzleTitle')?.textContent||'').match(/#(\d+)/)||[])[1]);const mode=currentMode();return puzzles.find(p=>p.id===id&&p.mode===mode)||puzzles.find(p=>p.id===id)||null}
+  function currentPuzzle(){const id=Number((($('#puzzleTitle')?.textContent||'').match(/#(\d+)/)||[])[1]);const mode=currentMode();return puzzles.find(p=>p.id===id&&p.mode===mode)||null}
   function stateFor(p){try{return JSON.parse(localStorage.getItem(`gamegrid:${p.mode}:${p.id}`)||'{}')}catch{return {}}}
   function scopeOK(g,p){if(p.scope==='Retro')return g.year<=1999;if(p.scope==='Modern')return g.year>=2000;if(p.scope==='Nintendo')return g.platforms.some(x=>NINTENDO.has(x));if(p.scope==='PlayStation')return g.platforms.some(x=>x.startsWith('PlayStation')||['PSP','PS Vita'].includes(x));if(p.scope==='Xbox')return g.platforms.some(x=>x.startsWith('Xbox'));return true}
   function qualifies(g,p,r,c){return scopeOK(g,p)&&clues[p.rows[r]].test(g)&&clues[p.cols[c]].test(g)}

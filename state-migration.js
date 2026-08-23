@@ -4,7 +4,7 @@
   const {puzzles}=DATA;
   const mode=document.querySelector('.mode-tab.active')?.dataset.mode||localStorage.getItem('gamegrid:mode')||'Classic';
   const id=Number((($('#puzzleTitle')?.textContent||'').match(/#(\d+)/)||[])[1]);
-  const p=puzzles.find(x=>x.id===id&&x.mode===mode)||puzzles.find(x=>x.id===id);
+  const p=puzzles.find(x=>x.id===id&&x.mode===mode);
   if(!p)return;
   const storageKey=`gamegrid:${p.mode}:${p.id}`;
   const fingerprint=[p.date,p.mode,(p.rows||[]).join(','),(p.cols||[]).join(','),p.catalogHash||'',p.buildHash||''].join('|');

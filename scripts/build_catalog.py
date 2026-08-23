@@ -13,7 +13,9 @@ PLATFORMS_URL='https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Show
 # depend on an opaque popularity ranking.  GitHub Pages can serve the generated
 # static asset, and the browser needs the full index for an answer to be valid.
 MAX_GAMES=None
-START=dt.date(2026,8,17)
+# This is the first day of the reset public schedule.  Keep it fixed so future
+# catalogue rebuilds preserve the published puzzle numbering.
+START=dt.date(2026,8,23)
 END=dt.date(2026,12,31)
 
 ALIASES={

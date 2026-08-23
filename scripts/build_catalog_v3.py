@@ -399,13 +399,14 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usag
 
 
 def generate(games):
-    all_puzzles=[];report_modes={};puzzle_game_ids=set();pid=1
+    all_puzzles=[];report_modes={};puzzle_game_ids=set()
     for mi,mode in enumerate(MODES):
         specs=v2.specs_for_mode(games,mode)
         scoped_ids,counts,pool,pair_sets=v2.build_index(games,mode,specs)
         print(f'Generating {mode}: {len(scoped_ids)} scoped games, {len(pool)} clues')
         usage_families=('maker',)+CORE_FAMILIES if mode=='Trial' else CORE_FAMILIES
-        rng=random.Random(260817+mi*997);recent=[];family_usage={family:0 for family in usage_families};d=START;mode_ps=[]
+        # IDs are public sequence numbers, so every mode has its own #1.
+        rng=random.Random(260817+mi*997);recent=[];family_usage={family:0 for family in usage_families};d=START;mode_ps=[];pid=1
         while d<=END:
             p=make_puzzle(mode,d,pid,recent,pool,pair_sets,rng,len(scoped_ids),family_usage);pid+=1
             for row in p['rows']:

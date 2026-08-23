@@ -23,7 +23,7 @@
 
     // app.js renders its own mode-specific archive synchronously when this is clicked.
     archiveNav.click();
-    const nativeItem=[...document.querySelectorAll('#archiveList .archive-item')].find(b=>String(b.dataset.id)===String(p.id));
+    const nativeItem=[...document.querySelectorAll('#archiveList .archive-item')].find(b=>String(b.dataset.id)===String(p.id)&&b.dataset.mode===p.mode);
     if(nativeItem){
       nativeItem.click();
       const u=new URL(location.href);
@@ -46,7 +46,7 @@
     list.innerHTML=MODES.map(mode=>{
       const ps=all.filter(p=>p.mode===mode).sort((a,b)=>b.date.localeCompare(a.date));
       if(!ps.length)return'';
-      return `<section class="archive-mode-section"><div class="archive-mode-head"><h2>${mode}</h2><span>${ps.length} grid${ps.length===1?'':'s'}</span></div><div class="archive-mode-grid">${ps.map(p=>`<button class="archive-item archive-group-item" data-mode="${p.mode}" data-id="${p.id}"><strong>${p.mode} #${p.id}</strong><span>${new Date(p.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} · ${p.difficulty||'Classic'}</span></button>`).join('')}</div></section>`;
+      return `<section class="archive-mode-section"><div class="archive-mode-head"><h2>${mode}</h2><span>${ps.length} grid${ps.length===1?'':'s'}</span></div><div class="archive-mode-grid">${ps.map(p=>`<button class="archive-item archive-group-item" data-mode="${p.mode}" data-id="${p.id}"><strong>${window.GameGridName?.(p.mode)||p.mode} #${p.id}</strong><span>${new Date(p.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} · ${p.difficulty||'Classic'}</span></button>`).join('')}</div></section>`;
     }).join('');
     list.querySelectorAll('.archive-group-item').forEach(b=>b.onclick=()=>{
       const p=puzzles.find(x=>String(x.id)===b.dataset.id&&x.mode===b.dataset.mode);
