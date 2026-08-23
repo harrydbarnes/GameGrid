@@ -15,6 +15,7 @@ The main modes keep the format familiar while changing the playground:
 - **ModernGrid**: games released in 2000 or later.
 - **NintendoGrid**, **PlayStationGrid** and **XboxGrid**: games from that platform family.
 - **DeepCutGrid**: smaller, tougher intersections for people who enjoy a very specific challenge.
+- **TrialGrid**: expert-format grids with maker rows, game-fact columns and tighter pools.
 
 Lower rarity scores are better. They are based on catalogue popularity signals, not live player guesses, so they are a fun guide to obscurity rather than a global leaderboard. 🕹️
 

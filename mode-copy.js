@@ -5,32 +5,25 @@
   const infoBody = document.querySelector('#infoBody');
   if (!helpButton || !infoDialog || !infoTitle || !infoBody) return;
 
-  const modeTags = {
-    Classic: 'ANY ERA',
-    Retro: 'PRE-PS2',
-    Modern: 'PS2+',
-    Nintendo: 'NINTENDO ONLY',
-    PlayStation: 'PS FAMILY',
-    Xbox: 'XBOX ONLY',
-    'Deep Cut': 'HARD MODE',
-    Trial: 'EXPERT FORMAT',
-  };
-  const modeSummaries = {
-    Classic: 'Any era, any platform — the full catalogue.',
-    Retro: 'Pre-PS2 throwbacks, pixel dust included.',
-    Modern: 'PS2 onwards — newer-school adventures.',
-    Nintendo: 'Nintendo platforms only.',
-    PlayStation: 'PlayStation-family platforms only.',
-    Xbox: 'Xbox-family platforms only.',
-    'Deep Cut': 'Hard mode: smaller pools and less familiar picks.',
-    Trial: 'Expert format: maker rows, fact columns and tight pools.',
-  };
+  // The maintained source of user-facing mode descriptions. app.js has
+  // legacy first-paint fallbacks, but this file owns all rendered copy.
+  const modes = Object.freeze({
+    Classic: { tag: 'ANY ERA', summary: 'Any era, any platform, the full catalogue.' },
+    Retro: { tag: 'PRE-PS2', summary: 'Pre-PS2 throwbacks, pixel dust included.' },
+    Modern: { tag: 'PS2+', summary: 'PS2 onwards, newer-school adventures.' },
+    Nintendo: { tag: 'NINTENDO ONLY', summary: 'Nintendo platforms only.' },
+    PlayStation: { tag: 'PS FAMILY', summary: 'PlayStation-family platforms only.' },
+    Xbox: { tag: 'XBOX ONLY', summary: 'Xbox-family platforms only.' },
+    'Deep Cut': { tag: 'HARD MODE', summary: 'Hard mode: smaller pools and less familiar picks.', challengeTitle: 'Hard mode', challengeCopy: 'Smaller answer pools and less familiar games. Take your time.' },
+    Trial: { tag: 'EXPERT FORMAT', summary: 'Expert format: maker rows, fact columns and tight pools.', challengeTitle: 'Expert format', challengeCopy: 'Rows are makers. Columns are platform, genre, era or ratings.' },
+  });
+  window.GameGridModeCopy = modes;
   const modeLabel = document.querySelector('#modeLabel');
   const difficultyLabel = document.querySelector('#difficultyLabel');
   const syncModeLabel = () => {
     const mode = document.querySelector('.mode-tab.active')?.dataset.mode || 'Classic';
     const difficulty = difficultyLabel?.textContent?.trim();
-    const next = `DAILY ${mode.toUpperCase()} · ${modeTags[mode] || 'MIXED BAG'}${difficulty && difficulty !== '–' ? ` · ${difficulty.toUpperCase()}` : ''}`;
+    const next = `DAILY ${mode.toUpperCase()} · ${modes[mode]?.tag || 'MIXED BAG'}${difficulty && difficulty !== '–' ? ` · ${difficulty.toUpperCase()}` : ''}`;
     if (modeLabel && modeLabel.textContent !== next) modeLabel.textContent = next;
   };
   syncModeLabel();
@@ -39,7 +32,7 @@
   const modeTabs = document.querySelector('#modeTabs');
   const syncModeTabs = () => modeTabs?.querySelectorAll('.mode-tab').forEach(tab => {
     const mode = tab.dataset.mode || tab.textContent.trim();
-    const summary = modeSummaries[mode];
+    const summary = modes[mode]?.summary;
     if (summary) {
       tab.setAttribute('aria-label', `${mode}: ${summary}`);
       tab.title = summary;
@@ -52,14 +45,10 @@
   const challengeCopy = document.querySelector('#challengeCopy');
   const syncSpecialModeCopy = () => {
     const mode = document.querySelector('.mode-tab.active')?.dataset.mode;
-    if (mode === 'Deep Cut') {
-      if (challengeTitle) challengeTitle.textContent = 'Hard mode';
-      if (challengeCopy) challengeCopy.textContent = 'Smaller answer pools and less familiar games. Take your time.';
-    }
-    if (mode === 'Trial') {
-      if (challengeTitle) challengeTitle.textContent = 'Expert format';
-      if (challengeCopy) challengeCopy.textContent = 'Rows are makers. Columns are platform, genre, era or ratings.';
-    }
+    const copy = modes[mode];
+    if (!copy?.challengeTitle) return;
+    if (challengeTitle) challengeTitle.textContent = copy.challengeTitle;
+    if (challengeCopy) challengeCopy.textContent = copy.challengeCopy;
   };
   syncSpecialModeCopy();
   if (modeTabs) new MutationObserver(syncSpecialModeCopy).observe(modeTabs, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });

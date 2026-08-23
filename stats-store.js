@@ -162,13 +162,29 @@
     };
   }
 
+  function installStatsCardFormatting() {
+    const cards = document.querySelector('#statsCards');
+    if (!cards || cards.dataset.gamegridFormatting) return;
+    cards.dataset.gamegridFormatting = 'true';
+    const format = () => cards.querySelectorAll('.stat').forEach(card => {
+      const label = card.querySelector('span');
+      const value = card.querySelector('strong');
+      if (!label || !value || label.textContent.trim() !== 'Games indexed') return;
+      label.textContent = 'Searchable games';
+      const number = Number(value.textContent.replace(/,/g, ''));
+      if (Number.isFinite(number)) value.textContent = new Intl.NumberFormat('en-GB').format(number);
+    });
+    format();
+    new MutationObserver(format).observe(cards, { childList: true, subtree: true, characterData: true });
+  }
+
   const api = { SCHEMA_VERSION, empty, normalise, parse, read, write, reset };
   if (typeof window !== 'undefined') {
     // Repair legacy or malformed state before app.js reads it, without
     // changing Storage globally or intercepting unrelated localStorage keys.
     write(read());
-    document.addEventListener('DOMContentLoaded', installControls);
-    new MutationObserver(installControls).observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', () => { installControls(); installStatsCardFormatting(); });
+    new MutationObserver(() => { installControls(); installStatsCardFormatting(); }).observe(document.documentElement, { childList: true, subtree: true });
     window.GameGridStats = api;
   }
   if (typeof module !== 'undefined') module.exports = api;
