@@ -277,6 +277,30 @@ def score_counts(ints,mode,scoped_games):
     return abs(med-target)+(spread*0.08)
 
 
+# A catalogue entry can list a modern port alongside its original release
+# year. That is useful search data, but it makes a grid such as "Released in
+# the 1990s" + "Ninth-generation console" feel self-contradictory. Treat the
+# release era as the game's original era when building puzzles, and never
+# combine it with a console generation that had not launched yet.
+GENERATION_FIRST_RELEASE_YEAR={
+    'gen6': 1998,
+    'gen7': 2005,
+    'gen8': 2012,
+    'gen9': 2020,
+}
+
+
+def criteria_are_temporally_compatible(first, second):
+    """Reject era/generation intersections made possible only by later ports."""
+    for era, generation in ((first, second), (second, first)):
+        if era.get('kind') != 'yearRange' or generation.get('id') not in GENERATION_FIRST_RELEASE_YEAR:
+            continue
+        upper_year=(era.get('value') or [None, None])[1]
+        if isinstance(upper_year, (int, float)) and upper_year < GENERATION_FIRST_RELEASE_YEAR[generation['id']]:
+            return False
+    return True
+
+
 def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usage):
     if len(pool)<6:
         raise RuntimeError(f'{mode} has only {len(pool)} eligible clues; need at least 6')
@@ -299,6 +323,7 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usag
             if not balanced_families(six):continue
             if tuple(ids) in recent:continue
             if any(r['kind']==c['kind'] and r['value']==c['value'] for r in rows for c in cols):continue
+            if any(not criteria_are_temporally_compatible(r,c) for r in rows for c in cols):continue
             cells=[pair_lookup(pair_sets,r['id'],c['id']) for r in rows for c in cols]
             ints=[len(c) for c in cells]
             if min(ints)<low or max(ints)>high:continue

@@ -20,7 +20,7 @@ html[data-search-hints="off"] .search-results .result small{display:none}
 /* A bottom sheet must use the visual viewport on phones: the keyboard can
    reduce the usable height without changing the layout viewport. */
 @media(max-width:620px){
-  .search-dialog{margin:auto 0 0;width:100%;max-width:none;border-radius:20px 20px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom));height:min(88dvh,720px);max-height:calc(var(--gamegrid-visual-height,100dvh) - 8px);display:flex;flex-direction:column}
+  .search-dialog{margin:auto 0 0;width:100%;max-width:none;border-radius:20px 20px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom));height:min(94dvh,780px);max-height:calc(var(--gamegrid-visual-height,100dvh) - 8px);display:flex;flex-direction:column}
   .search-dialog .dialog-head{margin-bottom:12px;flex:0 0 auto}
   .search-dialog .dialog-head h2{font-size:clamp(19px,5vw,25px)}
   .search-dialog .search-box{flex:0 0 auto}
