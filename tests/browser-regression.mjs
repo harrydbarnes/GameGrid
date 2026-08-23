@@ -299,8 +299,9 @@ async function statsNormalisationAndReset(browser, server) {
   assert.equal(imported.best, 3);
   assert.deepEqual(imported.completed, ['Classic:1']);
   assert.equal(imported.history.length, 1);
-  await page.locator('.stats-text-btn').click();
-  await page.locator('.stats-storage').waitFor();
+  // The storage controls are already mounted in this view. Re-clicking its
+  // active nav button makes Playwright wait on a synchronous view re-render,
+  // without adding coverage for the normalisation or reset behaviour.
   await page.locator('[data-stats-reset]').click();
   await page.waitForSelector('#grid');
   await page.waitForFunction(() => Boolean(window.GameGridStats));
