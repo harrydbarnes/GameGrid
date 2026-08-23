@@ -303,7 +303,9 @@ async function statsNormalisationAndReset(browser, server) {
   // active nav button makes Playwright wait on a synchronous view re-render,
   // without adding coverage for the normalisation or reset behaviour.
   await page.locator('[data-stats-reset]').click();
-  await page.waitForSelector('#grid');
+  // Reset deliberately refreshes the current Stats view in place. It no
+  // longer reloads the page or returns the player to the grid.
+  await page.waitForFunction(() => !document.querySelector('#statsView')?.classList.contains('hidden'));
   await page.waitForFunction(() => Boolean(window.GameGridStats));
   await page.waitForFunction(() => window.GameGridStats.read().played === 0);
   const reset = await page.evaluate(() => window.GameGridStats.read());
