@@ -36,11 +36,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Locate the published catalogue to preserve
+        id: published-catalogue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'catalogue.yml',
+              branch: 'main',
+              status: 'completed',
+              per_page: 20,
+            });
+            const run = response.data.workflow_runs.find(item => item.conclusion === 'success' && item.id !== context.runId);
+            if (!run) core.setFailed('No published catalogue bundle is available to preserve today and past puzzles. Restore or explicitly reset the schedule before building.');
+            else core.setOutput('run-id', String(run.id));
+      - name: Download the published catalogue
+        uses: actions/download-artifact@v4
+        with:
+          name: gamegrid-catalogue
+          path: .published-catalogue
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.published-catalogue.outputs.run-id }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Build catalogue, modes, quality-scored puzzles and performance-budget gate
+        env:
+          GAMEGRID_PUBLISHED_CATALOGUE_DIR: ${{ github.workspace }}/.published-catalogue
         run: |
           cd scripts
           python build_catalog_v3.py
@@ -97,4 +123,4 @@ jobs:
           name: gamegrid-catalogue
           path: output/catalogue
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 365

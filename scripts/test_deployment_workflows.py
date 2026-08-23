@@ -22,12 +22,14 @@ class DeploymentWorkflowTests(unittest.TestCase):
             "validate_catalog.py",
             "actions/upload-artifact@v4",
             "name: gamegrid-catalogue",
-            "retention-days: 90",
+            "retention-days: 365",
             "actions/cache/restore@v4",
             "actions/cache/save@v4",
             "IGDB_COVER_CACHE_FILE",
             "gamegrid-igdb-covers-v1-${{ steps.catalogue.outputs.catalog-hash }}",
             "restore-keys:",
+            "Locate the published catalogue to preserve",
+            "GAMEGRID_PUBLISHED_CATALOGUE_DIR",
         ):
             self.assertIn(required, source)
 

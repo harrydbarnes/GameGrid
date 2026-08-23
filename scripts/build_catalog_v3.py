@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import datetime as dt, gzip, hashlib, json, os, random, statistics
+import copy, datetime as dt, gzip, hashlib, json, os, random, re, statistics
+from pathlib import Path
 import build_catalog as base
 import build_catalog_v2 as v2
 import catalog_quality as quality
@@ -162,6 +163,47 @@ def catalogue_hash(games,clue_specs):
 
 def catalogue_assets(build_hash):
     return {'dataAsset':f'puzzle.{build_hash}.js','indexAsset':f'index.{build_hash}.js','searchAsset':f'search.{build_hash}.js','detailsAsset':f'details.{build_hash}.js'}
+
+
+def published_through():
+    """Return the last date whose public puzzle must remain unchanged."""
+    value=os.environ.get('GAMEGRID_PUBLISHED_THROUGH')
+    return dt.date.fromisoformat(value) if value else dt.date.today()
+
+
+def load_published_catalogue(directory):
+    """Read puzzles and bootstrap game IDs from the last published bundle."""
+    if not directory:return [],set()
+    assets=sorted(Path(directory).glob('puzzle.*.js'))
+    if not assets:return [],set()
+    source=assets[-1].read_text(encoding='utf-8')
+    puzzles_match=re.search(r'const puzzles=(\[.*?\]);\nreturn ',source,re.S)
+    games_match=re.search(r'const games=(\[.*?\])\.map\(',source,re.S)
+    if not puzzles_match or not games_match:
+        raise RuntimeError('Published catalogue asset could not be parsed for puzzle preservation')
+    puzzles=json.loads(puzzles_match.group(1))
+    game_ids={str(row[0]) for row in json.loads(games_match.group(1)) if row}
+    return puzzles,game_ids
+
+
+def preserve_published_puzzles(generated,published,through):
+    """Replace regenerated public dates with their last published puzzle data."""
+    protected={
+        (str(puzzle.get('mode')),str(puzzle.get('date'))):copy.deepcopy(puzzle)
+        for puzzle in published
+        if dt.date.fromisoformat(str(puzzle.get('date')))<=through
+    }
+    if not protected:return generated,0
+    merged=[];seen=set()
+    for puzzle in generated:
+        key=(str(puzzle.get('mode')),str(puzzle.get('date')))
+        merged.append(protected.get(key,puzzle));seen.add(key)
+    # Retain a published mode/date even if a future generator revision no
+    # longer produces that mode. Historical grids must never disappear.
+    merged.extend(puzzle for key,puzzle in protected.items() if key not in seen)
+    mode_order={mode:index for index,mode in enumerate(MODES)}
+    merged.sort(key=lambda puzzle:(puzzle['date'],mode_order.get(puzzle['mode'],len(mode_order)),puzzle['mode']))
+    return merged,len(protected)
 
 
 def asset_sizes(assets,root='.'):
@@ -431,6 +473,9 @@ def main():
     if len(playable_games)<4000:raise RuntimeError(f'Playable catalogue too small: {len(playable_games)}')
     all_specs=v2.all_clue_specs(playable_games)
     puzzles,mode_report,puzzle_game_ids=generate(playable_games)
+    published,published_game_ids=load_published_catalogue(os.environ.get('GAMEGRID_PUBLISHED_CATALOGUE_DIR'))
+    puzzles,preserved_count=preserve_published_puzzles(puzzles,published,published_through())
+    puzzle_game_ids.update(published_game_ids)
     puzzle_games=[game for game in games if game['id'] in puzzle_game_ids]
     catalog_hash=catalogue_hash(games,all_specs)
     _,build_hash=version_puzzles(puzzles,catalog_hash,{'puzzleGameIds':sorted(puzzle_game_ids)})
@@ -459,7 +504,7 @@ def main():
     # Keep index.html stable while making its parser-blocking data hook load the
     # current manifest and its immutable, fingerprinted payload.
     open('data.js','w',encoding='utf-8').write("document.write('<script src=\"./catalog-manifest.js\"><\\/script><script src=\"./catalog-loader.js\"><\\/script>');\n")
-    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(all_specs),'puzzles':len(puzzles),'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'detailsHash':details_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
+    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(all_specs),'puzzles':len(puzzles),'publishedPuzzlesPreserved':preserved_count,'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'detailsHash':details_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 
