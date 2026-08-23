@@ -23,6 +23,24 @@ class CatalogueVersioningTests(unittest.TestCase):
         self.assertIn("Modern:'ModernGrid'", names)
         self.assertIn("Classic:'GameGrid'", names)
 
+    def test_published_puzzles_replace_regenerated_dates_through_today(self):
+        generated = [
+            {'id': 1, 'mode': 'Classic', 'date': '2026-08-23', 'rows': ['new']},
+            {'id': 2, 'mode': 'Classic', 'date': '2026-08-24', 'rows': ['new-future']},
+        ]
+        published = [
+            {'id': 1, 'mode': 'Classic', 'date': '2026-08-23', 'rows': ['published']},
+            {'id': 9, 'mode': 'Retro', 'date': '2026-08-22', 'rows': ['retained-mode']},
+        ]
+        merged, count = catalog.preserve_published_puzzles(
+            generated, published, catalog.dt.date(2026, 8, 23)
+        )
+        by_key = {(p['mode'], p['date']): p for p in merged}
+        self.assertEqual(count, 2)
+        self.assertEqual(by_key[('Classic', '2026-08-23')]['rows'], ['published'])
+        self.assertEqual(by_key[('Classic', '2026-08-24')]['rows'], ['new-future'])
+        self.assertIn(('Retro', '2026-08-22'), by_key)
+
     def test_catalogue_hash_is_stable_and_changes_with_catalogue_content(self):
         clues = [{'id': 'action', 'kind': 'genre', 'value': 'action'}]
         games = [{'id': '1', 'title': 'Example', 'year': 2000}]

@@ -1,64 +1,69 @@
-# GameGrid
+# GameGrid 🎮
 
-A daily 3×3 video-game grid puzzle built for GitHub Pages.
+GameGrid is a daily 3×3 video-game puzzle. Pick a square, name a game and make sure it fits both clues. Easy to understand, surprisingly good at making you remember a weird PlayStation 2 game from 2004.
+
+It is a static site built for GitHub Pages, with no sign-in, no server and no ads.
 
 ## How to play
 
-Pick a square and choose a video game that matches both the row and column clues. You have nine guesses to complete the grid. Progress, streaks and settings are stored locally in your browser.
+Each grid has three row clues and three column clues. A correct answer must satisfy the pair for its square. Every game can be used only once, and you have nine guesses to fill all nine squares.
 
-## Production data
+The main modes keep the format familiar while changing the playground:
 
-The catalogue publisher workflow builds the production data on the weekly schedule, when manually dispatched, or when catalogue-generation code changes. `scripts/build_catalog.py` downloads the open PlayMyData research dataset (IGDB-derived), normalises and deduplicates it, and retains every eligible record rather than applying a popularity cut-off. It also backfills a small, reviewed set of major recent releases so the fixed research snapshot cannot omit obvious modern answers.
+- **GameGrid / Classic**: the full catalogue.
+- **RetroGrid**: games released before 2000.
+- **ModernGrid**: games released in 2000 or later.
+- **NintendoGrid**, **PlayStationGrid** and **XboxGrid**: games from that platform family.
+- **DeepCutGrid**: smaller, tougher intersections for people who enjoy a very specific challenge.
 
-The generator defines 40–60 data-driven clue types across platforms, release eras, genres, ratings and title properties. Mode-aware generation creates Classic, Retro (before 2000), Modern (2000 onward), Nintendo, PlayStation, Xbox and Deep Cut daily puzzles through 31 December 2026.
+Lower rarity scores are better. They are based on catalogue popularity signals, not live player guesses, so they are a fun guide to obscurity rather than a global leaderboard. 🕹️
 
-Every generated puzzle is validated before deployment. Each of its nine intersections must have multiple valid answers in the deployed catalogue. The generated `catalog-report.json` records catalogue size, clue counts, schedule range, clue coverage and raw/gzip sizes for every split asset. CI fails if the combined puzzle bootstrap and full search index exceed 12,000,000 raw bytes or 3,000,000 gzip bytes.
+Progress, streaks and settings stay in the browser you are using. You can export your local stats as a backup, but there is no account or cloud sync.
 
-Production loads a small catalogue manifest first, followed by a fingerprinted puzzle-only `puzzle.<build-hash>.js` asset. The full compact title index is fingerprinted separately and fetched into a search worker only when the answer picker (or postgame answer browser) is opened; rich developers, publishers and covers remain deferred. The manifest hash is stamped onto every puzzle; the browser refuses to start the game if the manifest, split assets and scheduled puzzles do not all agree. This prevents a cached page from combining a newer grid with an older catalogue.
+## Daily puzzles that stay put 📅
 
-The small `data.js` committed to the repository is a fallback for local/offline development. It includes a representative set of landmark games (including the recent-release spot checks); the GitHub Actions build replaces it with the full generated production catalogue in the Pages deployment artifact.
+Once a puzzle is live, it is frozen. Today’s grid and every past grid keep their clues, answers, difficulty and numbering, even when GameGrid’s rules improve later.
 
-## Real game artwork (free)
+Changes to the generator or clue rules are used for future dates only. Reworking old grids, backfilling them or resetting the schedule is an intentional operation and only happens when explicitly requested.
 
-GameGrid can enrich the production catalogue with real cover artwork from IGDB at build time. IGDB is free for non-commercial use and requires a free Twitch developer application.
+## Behind the scenes
 
-1. Sign in/create a Twitch account and enable two-factor authentication.
-2. Register a confidential application in the Twitch Developer Console. IGDB's documentation says `localhost` can be used as the OAuth redirect URL.
-3. Generate a client secret.
-4. In this GitHub repository, open **Settings → Secrets and variables → Actions**.
-5. Add repository secrets named `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET`.
-6. Re-run **Deploy GameGrid to Pages** from the Actions tab, or push a commit to `main`.
+GameGrid builds its catalogue from the open PlayMyData research dataset, which is derived from IGDB. The build normalises and deduplicates the source, keeps a broad catalogue rather than a popularity cut-off, and adds a small reviewed backfill for obvious recent releases that a fixed data snapshot can miss.
 
-`scripts/enrich_covers.py` uses those secrets only inside GitHub Actions, retrieves IGDB cover image IDs for the generated catalogue, and adds public IGDB Image CDN URLs to the deployed data. The credentials are never included in the GitHub Pages JavaScript. The catalogue workflow persists a positive and negative ID lookup map in an Actions cache keyed by `catalogHash`; a new catalogue restores the latest map and asks IGDB only about unseen IDs. If the secrets are absent, deployment still succeeds and the existing letter-art fallback is used.
+Before a future grid is published, every one of its nine intersections is checked for valid answers. Standard modes require at least ten valid games per cell, while specialist modes deliberately allow tighter pools. The generator also avoids impossible time combinations and redundant nested clues.
 
-The deferred details asset is content-fingerprinted from its final serialized bytes. Cover enrichment rewrites the puzzle bootstrap pointer, manifest and report together, then removes the pre-enrichment filename, so a changed cover map cannot be served from an old details URL.
+The app loads the small puzzle data first. Search data is fetched only when needed, while covers and other rich game details stay deferred, helping the first load remain quick. ⚡
 
-## Local development
+## Artwork
 
-Serve the repository with any static web server:
+Where available, covers are enriched from IGDB during the build. If artwork cannot be loaded, GameGrid falls back to its letter-art treatment, so the game remains playable without any external image dependency.
+
+To enable IGDB cover enrichment for this repository, add `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` as GitHub Actions secrets. They are used only during the build and are never sent to the browser.
+
+## Development
+
+Serve the app locally with any static web server:
 
 ```bash
 python -m http.server 8000
 ```
 
-For the full production-sized dataset, run the generator/validator scripts before starting the server. The production build requires internet access because it retrieves upstream data.
+The committed `data.js` is a compact offline fallback. The production catalogue is generated in GitHub Actions and requires internet access to retrieve the upstream dataset.
 
-The focused browser regression suite covers malformed local storage, stats import/reset, the first deferred-details interaction, mobile answer search, stale catalogue assets and the release-version refresh prompt. Run `npm ci`, `npx playwright install chromium` and `npm run test:browser`; CI runs it against the generated fingerprinted assets after catalogue validation.
+Useful checks:
 
-## Deployment
+```bash
+python3 -m unittest discover -s scripts -p 'test_*.py'
+npm ci
+npx playwright install chromium
+npm run test:browser
+```
 
-Catalogue generation and UI deployment are separate. **Publish GameGrid catalogue** produces and validates the complete fingerprinted catalogue/covers bundle and retains it as the `gamegrid-catalogue` Actions artifact. **Deploy GameGrid to Pages** downloads the latest successful bundle for normal UI pushes, manual dispatches, and automatically after catalogue publication, then runs the browser regressions and deploys through GitHub Pages. This keeps app-only releases independent of the multi-minute data build.
+## Publishing
 
-Each Pages deployment stamps `index.html` with the checked-out shell commit plus the catalogue, puzzle and details hashes, and publishes the same value in `release-version.json`. The client checks that small marker with a cache-busting, `no-store` request when it loads and when the tab becomes visible. If a cached shell is older than the deployed release, it shows **New version available — refresh**; the check is advisory, so a temporary marker request failure never blocks gameplay.
+There are two workflows:
 
-No Netlify/Vercel/other web host is used.
+1. **Publish GameGrid catalogue** generates and validates the fingerprinted catalogue bundle. It first downloads the last published bundle so every live puzzle is preserved.
+2. **Deploy GameGrid to Pages** reuses that bundle for normal app, design and copy updates, then deploys the site.
 
-## Rarity
-
-GameGrid uses a static **catalogue-rarity** score within each square's valid answer pool. It ranks games by the source dataset's review/poll participation count, using the game rating only as a small tie-breaker; lower percentile scores are less documented in that catalogue and therefore score better. It is not a measure of how often GameGrid players guessed a title.
-
-This is intentionally server-free: the score is recalculated deterministically from the deployed data, so all players see the same result for the same puzzle. Games without a source participation count are shown as **catalogue rank unavailable**, rather than misleadingly assigning them the tied midpoint (50); they incur the standard 100-point unranked penalty in a completed grid. True community rarity would require a writable aggregate data source.
-
-## Data source
-
-Production catalogue generation uses the PlayMyData multi-platform video-game research dataset published on GitHub by Riccardo Rubei et al. The source project describes the dataset as containing 99,864 unique games gathered from IGDB across Nintendo, PC, PlayStation and Xbox ecosystems. GameGrid downloads it only at build time, resolves the source's numeric genre and platform IDs through its accompanying lookup files, and deploys the complete eligible, normalised index plus the documented recent-release backfill. Rating criteria use the source's static 0–100 score with IGDB-calibrated thresholds: 6.5+, 7.5+, 8+ and 8.5+.
+This separation means a button tweak does not rebuild the quiz schedule. GitHub Pages is the only host used.
