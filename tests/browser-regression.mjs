@@ -222,6 +222,35 @@ async function boot(browser, server, options = {}) {
   return { context, page };
 }
 
+async function findReachableRichCandidate(page, richIds) {
+  return page.evaluate(ids => {
+    const today = new Date().toISOString().slice(0, 10);
+    const grids = window.GAMEGRID_DATA.puzzles
+      .filter(puzzle => puzzle.mode === 'Classic')
+      .slice()
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)) || Number(a.id) - Number(b.id));
+    const current = grids.reduce((latest, puzzle, index) => puzzle.date <= today ? index : latest, -1);
+    for (let gridIndex = Math.max(0, current); gridIndex < grids.length; gridIndex++) {
+      const puzzle = grids[gridIndex];
+      for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
+        for (let columnIndex = 0; columnIndex < 3; columnIndex++) {
+          const row = window.GAMEGRID_DATA.clues[puzzle.rows[rowIndex]];
+          const column = window.GAMEGRID_DATA.clues[puzzle.cols[columnIndex]];
+          const game = window.GAMEGRID_DATA.games.find(item => ids.includes(item.id) && row.test(item) && column.test(item));
+          if (game) return { id: game.id, title: game.title, index: rowIndex * 3 + columnIndex, offset: gridIndex - Math.max(0, current) };
+        }
+      }
+    }
+    return null;
+  }, richIds);
+}
+
+async function openCandidateGrid(page, candidate) {
+  if (candidate.offset) await page.evaluate(offset => {
+    for (let step = 0; step < offset; step++) window.GameGridNavigation.go(1);
+  }, candidate.offset);
+}
+
 async function malformedStorageBoot(browser, server) {
   const context = await browser.newContext();
   await context.addInitScript(() => {
@@ -260,8 +289,8 @@ async function importAndReset(browser, server) {
       wins: 99,
       streak: 99,
       best: 99,
-      completed: ['Classic:5', 'Classic:5'],
-      history: [{ token: 'Classic:5', id: 5, mode: 'Classic', date: '2026-08-21', solved: 9, win: true, guessesUsed: 1, timeSec: 10, rarity: 20 }, { broken: true }],
+      completed: ['Classic:1', 'Classic:1'],
+      history: [{ token: 'Classic:1', id: 1, mode: 'Classic', date: '2026-08-23', solved: 9, win: true, guessesUsed: 1, timeSec: 10, rarity: 20 }, { broken: true }],
     })),
   });
   await page.waitForFunction(() => window.GameGridStats.read().played === 3);
@@ -269,7 +298,7 @@ async function importAndReset(browser, server) {
   assert.equal(imported.wins, 3);
   assert.equal(imported.streak, 3);
   assert.equal(imported.best, 3);
-  assert.deepEqual(imported.completed, ['Classic:5']);
+  assert.deepEqual(imported.completed, ['Classic:1']);
   assert.equal(imported.history.length, 1);
   await page.locator('.stats-text-btn').click();
   await page.locator('.stats-storage').waitFor();
@@ -292,21 +321,9 @@ async function firstLazyDetailClick(browser, server) {
     if (request.url() === detailsUrl) detailRequests++;
   });
   assert.equal(await page.evaluate(() => Boolean(window.GAMEGRID_DETAILS)), false);
-  const candidate = await page.evaluate(richIds => {
-    const today = new Date().toISOString().slice(0, 10);
-    const schedules = window.GAMEGRID_DATA.puzzles.filter(puzzle => puzzle.mode === 'Classic' && puzzle.date <= today);
-    const puzzle = schedules.at(-1) || window.GAMEGRID_DATA.puzzles.find(item => item.mode === 'Classic') || window.GAMEGRID_DATA.puzzles[0];
-    for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
-      for (let columnIndex = 0; columnIndex < 3; columnIndex++) {
-        const row = window.GAMEGRID_DATA.clues[puzzle.rows[rowIndex]];
-        const column = window.GAMEGRID_DATA.clues[puzzle.cols[columnIndex]];
-        const game = window.GAMEGRID_DATA.games.find(item => richIds.includes(item.id) && row.test(item) && column.test(item));
-        if (game) return { id: game.id, title: game.title, index: rowIndex * 3 + columnIndex };
-      }
-    }
-    return null;
-  }, server.active.richIds);
+  const candidate = await findReachableRichCandidate(page, server.active.richIds);
   assert.ok(candidate?.title, 'fixture must provide a valid answer cell');
+  await openCandidateGrid(page, candidate);
   await page.locator('#grid .cell.empty').nth(candidate.index).click();
   await page.locator('#searchDialog[open]').waitFor();
   await page.locator('#gameSearch').fill(candidate.title);
@@ -471,21 +488,9 @@ async function deferredDetailsFailure(browser, server) {
       body: 'window.GAMEGRID_DETAILS={catalogHash:"stale-catalog-hash",buildHash:"stale-build-hash",games:{}};',
     });
   });
-  const candidate = await page.evaluate(richIds => {
-    const today = new Date().toISOString().slice(0, 10);
-    const schedules = window.GAMEGRID_DATA.puzzles.filter(puzzle => puzzle.mode === 'Classic' && puzzle.date <= today);
-    const puzzle = schedules.at(-1) || window.GAMEGRID_DATA.puzzles.find(item => item.mode === 'Classic') || window.GAMEGRID_DATA.puzzles[0];
-    for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
-      for (let columnIndex = 0; columnIndex < 3; columnIndex++) {
-        const row = window.GAMEGRID_DATA.clues[puzzle.rows[rowIndex]];
-        const column = window.GAMEGRID_DATA.clues[puzzle.cols[columnIndex]];
-        const game = window.GAMEGRID_DATA.games.find(item => richIds.includes(item.id) && row.test(item) && column.test(item));
-        if (game) return { title: game.title, index: rowIndex * 3 + columnIndex };
-      }
-    }
-    return null;
-  }, server.active.richIds);
+  const candidate = await findReachableRichCandidate(page, server.active.richIds);
   assert.ok(candidate?.title, 'fixture must provide a valid answer cell');
+  await openCandidateGrid(page, candidate);
   await page.locator('#grid .cell.empty').nth(candidate.index).click();
   await page.locator('#searchDialog[open]').waitFor();
   await page.locator('#gameSearch').fill(candidate.title);
