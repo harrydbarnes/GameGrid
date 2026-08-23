@@ -121,6 +121,14 @@
     setTimeout(() => URL.revokeObjectURL(link.href), 0);
   }
 
+  function refreshStatsView() {
+    window.dispatchEvent(new Event('gamegrid:stats-updated'));
+    // Import and reset can only be initiated from the stats screen. Reopen it
+    // through the app's existing handler so its counters and history repaint
+    // without disrupting the player with a page reload.
+    document.querySelector('.nav-btn[data-view="stats"]')?.click();
+  }
+
   function installControls() {
     const view = document.querySelector('#statsView');
     if (!view || view.querySelector('.stats-storage')) return;
@@ -139,7 +147,7 @@
         try {
           const imported = normalise(JSON.parse(reader.result));
           if (!write(imported)) throw new Error('Storage unavailable');
-          location.reload();
+          refreshStatsView();
         } catch {
           alert('That backup could not be imported.');
         }
@@ -149,7 +157,7 @@
     section.querySelector('[data-stats-reset]').onclick = () => {
       if (confirm('Reset all GameGrid stats on this device?')) {
         if (!reset()) alert('GameGrid could not reset its local stats.');
-        else location.reload();
+        else refreshStatsView();
       }
     };
   }
