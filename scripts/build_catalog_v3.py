@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import copy, datetime as dt, gzip, hashlib, json, os, random, re, statistics
 from pathlib import Path
+from zoneinfo import ZoneInfo
 import build_catalog as base
 import build_catalog_v2 as v2
 import catalog_quality as quality
@@ -168,7 +169,7 @@ def catalogue_assets(build_hash):
 def published_through():
     """Return the last date whose public puzzle must remain unchanged."""
     value=os.environ.get('GAMEGRID_PUBLISHED_THROUGH')
-    return dt.date.fromisoformat(value) if value else dt.date.today()
+    return dt.date.fromisoformat(value) if value else dt.datetime.now(ZoneInfo('Europe/London')).date()
 
 
 def load_published_catalogue(directory):
