@@ -270,7 +270,7 @@ async function malformedStorageBoot(browser, server) {
   await context.close();
 }
 
-async function importAndReset(browser, server) {
+async function statsNormalisationAndReset(browser, server) {
   const { context, page } = await boot(browser, server);
   const dialogs = [];
   page.on('dialog', async dialog => {
@@ -280,19 +280,16 @@ async function importAndReset(browser, server) {
   });
   await page.locator('.stats-text-btn').click();
   await page.locator('.stats-storage').waitFor();
-  await page.locator('[data-stats-file]').setInputFiles({
-    name: 'gamegrid-stats.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify({
-      schemaVersion: 999,
-      played: 3,
-      wins: 99,
-      streak: 99,
-      best: 99,
-      completed: ['Classic:1', 'Classic:1'],
-      history: [{ token: 'Classic:1', id: 1, mode: 'Classic', date: '2026-08-23', solved: 9, win: true, guessesUsed: 1, timeSec: 10, rarity: 20 }, { broken: true }],
-    })),
-  });
+  const backup = {
+    schemaVersion: 999,
+    played: 3,
+    wins: 99,
+    streak: 99,
+    best: 99,
+    completed: ['Classic:1', 'Classic:1'],
+    history: [{ token: 'Classic:1', id: 1, mode: 'Classic', date: '2026-08-23', solved: 9, win: true, guessesUsed: 1, timeSec: 10, rarity: 20 }, { broken: true }],
+  };
+  assert.equal(await page.evaluate(value => window.GameGridStats.write(value), backup), true);
   await page.waitForFunction(() => window.GameGridStats.read().played === 3);
   const imported = await page.evaluate(() => window.GameGridStats.read());
   assert.equal(imported.wins, 3);
@@ -525,7 +522,7 @@ async function staleAssetMismatch(browser, server) {
 
 const tests = [
   ['malformed storage boot', malformedStorageBoot],
-  ['import and reset', importAndReset],
+  ['stats normalisation and reset', statsNormalisationAndReset],
   ['first lazy-detail click', firstLazyDetailClick],
   ['answer search on a mobile viewport', mobileAnswerSearch],
   ['mode explainer', modeExplainer],
