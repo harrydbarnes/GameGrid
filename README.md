@@ -32,7 +32,7 @@ GameGrid builds its catalogue from the open PlayMyData research dataset, which i
 
 Before a future grid is published, every one of its nine intersections is checked for valid answers. Standard modes require at least ten valid games per cell, while specialist modes deliberately allow tighter pools. The generator also avoids impossible time combinations and redundant nested clues.
 
-The app loads the small puzzle data first. Search data is fetched only when needed, while covers and other rich game details stay deferred, helping the first load remain quick. ⚡
+The app loads the small puzzle data first. The larger search index warms quietly after the page is ready and is saved on the device by its fingerprint, so repeat visits reuse it until the catalogue changes. Covers and other rich game details stay deferred, helping the first load remain quick. ⚡
 
 ## Artwork
 
