@@ -88,7 +88,19 @@
   }
 
   window.GameGridSearch = { ensure, query, ready: () => Boolean(worker && readyPromise) };
-  document.addEventListener('click', event => {
-    if (event.target.closest?.('#grid .cell.empty')) ensure().catch(() => {});
-  });
+
+  // The search index is deliberately much larger than the puzzle bootstrap.
+  // Start it after the game has painted, rather than on the first cell tap, so
+  // opening the answer sheet remains responsive on a mobile connection.
+  function warmInBackground() {
+    const warm = () => ensure().catch(() => {});
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(warm, { timeout: 3000 });
+    } else {
+      window.setTimeout(warm, 900);
+    }
+  }
+
+  if (document.readyState === 'complete') warmInBackground();
+  else window.addEventListener('load', warmInBackground, { once: true });
 })();
