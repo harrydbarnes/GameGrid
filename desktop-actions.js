@@ -34,4 +34,12 @@
     const clue=criterionNode(e.target);
     if(clue){e.preventDefault();e.stopImmediatePropagation();showCriterion(clue)}
   },true);
+
+  // Primary views replace the page's main content. Start each one at the top
+  // instead of preserving an Archive scroll position on the shorter Stats or
+  // Today view.
+  document.addEventListener('click',event=>{
+    if(!event.target.closest?.('.nav-btn[data-view]'))return;
+    window.setTimeout(()=>window.scrollTo({top:0,left:0,behavior:'auto'}),0);
+  });
 })();

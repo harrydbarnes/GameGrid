@@ -12,8 +12,8 @@
     Nintendo: 'NINTENDO ONLY',
     PlayStation: 'PS FAMILY',
     Xbox: 'XBOX ONLY',
-    'Deep Cut': 'LESS OBVIOUS',
-    Trial: 'MAKER × FACTS',
+    'Deep Cut': 'HARD MODE',
+    Trial: 'EXPERT FORMAT',
   };
   const modeSummaries = {
     Classic: 'Any era, any platform — the full catalogue.',
@@ -22,8 +22,8 @@
     Nintendo: 'Nintendo platforms only.',
     PlayStation: 'PlayStation-family platforms only.',
     Xbox: 'Xbox-family platforms only.',
-    'Deep Cut': 'Tighter pools, deeper cuts.',
-    Trial: 'Rows are makers; columns are game facts.',
+    'Deep Cut': 'Hard mode: smaller pools and less familiar picks.',
+    Trial: 'Expert format: maker rows, fact columns and tight pools.',
   };
   const modeLabel = document.querySelector('#modeLabel');
   const difficultyLabel = document.querySelector('#difficultyLabel');
@@ -50,17 +50,23 @@
 
   const challengeTitle = document.querySelector('#challengeTitle');
   const challengeCopy = document.querySelector('#challengeCopy');
-  const syncTrialCopy = () => {
-    if (document.querySelector('.mode-tab.active')?.dataset.mode !== 'Trial') return;
-    if (challengeTitle) challengeTitle.textContent = 'Backstage pass';
-    if (challengeCopy) challengeCopy.textContent = 'Rows are makers. Columns are platform, genre, era or ratings.';
+  const syncSpecialModeCopy = () => {
+    const mode = document.querySelector('.mode-tab.active')?.dataset.mode;
+    if (mode === 'Deep Cut') {
+      if (challengeTitle) challengeTitle.textContent = 'Hard mode';
+      if (challengeCopy) challengeCopy.textContent = 'Smaller answer pools and less familiar games. Take your time.';
+    }
+    if (mode === 'Trial') {
+      if (challengeTitle) challengeTitle.textContent = 'Expert format';
+      if (challengeCopy) challengeCopy.textContent = 'Rows are makers. Columns are platform, genre, era or ratings.';
+    }
   };
-  syncTrialCopy();
-  if (modeTabs) new MutationObserver(syncTrialCopy).observe(modeTabs, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  syncSpecialModeCopy();
+  if (modeTabs) new MutationObserver(syncSpecialModeCopy).observe(modeTabs, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 
   helpButton.onclick = () => {
     infoTitle.textContent = 'How to play';
-    infoBody.innerHTML = '<p>Find a video game that matches <strong>both clues</strong> for each square.</p><div class="mode-help-list"><p><strong>Classic</strong> — any era, any platform.</p><p><strong>Retro</strong> — pre-PS2 throwbacks.</p><p><strong>Modern</strong> — PS2 onwards.</p><p><strong>Nintendo, PlayStation or Xbox</strong> — that platform family only.</p><p><strong>Deep Cut</strong> — tighter pools, deeper cuts.</p><p><strong>Trial</strong> — rows are makers; columns are game facts.</p></div><p>You have nine guesses and each game can only be used once per grid.</p><p>Rarity is an estimated obscurity score for a correct answer within that square. Lower scores represent less obvious answers.</p>';
+    infoBody.innerHTML = '<p>Find a video game that matches <strong>both clues</strong> for each square.</p><div class="mode-help-list"><p><strong>Classic</strong> — any era, any platform.</p><p><strong>Retro</strong> — pre-PS2 throwbacks.</p><p><strong>Modern</strong> — PS2 onwards.</p><p><strong>Nintendo, PlayStation or Xbox</strong> — that platform family only.</p><p><strong>Deep Cut</strong> — hard mode with smaller pools and less familiar picks.</p><p><strong>Trial</strong> — expert format: makers on rows, game facts on columns and tight answer pools.</p></div><p>You have nine guesses and each game can only be used once per grid.</p><p>Rarity is an estimated obscurity score for a correct answer within that square. Lower scores represent less obvious answers.</p>';
     infoDialog.showModal();
   };
 })();
