@@ -3,7 +3,8 @@
   const {puzzles,meta={}}=DATA;
   const MODES=meta.modes||[...new Set(puzzles.map(p=>p.mode))];
   const $=s=>document.querySelector(s);
-  const today=new Date().toISOString().slice(0,10);
+  function londonToday(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),value=type=>parts.find(part=>part.type===type)?.value;return `${value('year')}-${value('month')}-${value('day')}`}
+  const today=londonToday();
 
   function past(){
     const p=puzzles.filter(x=>x.date<today);

@@ -350,12 +350,9 @@ async function firstLazyDetailClick(browser, server) {
 
 async function mobileAnswerSearch(browser, server) {
   const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
-  const indexUrl = new URL(server.active.manifest.indexAsset, server.base).href;
   assert.equal(await page.locator('#searchDialog[open]').count(), 0, 'answer sheet must stay hidden until a grid cell is selected');
-  const indexLoaded = page.waitForRequest(request => request.url() === indexUrl);
   await page.locator('#grid .cell.empty').first().click();
   await page.locator('#searchDialog[open]').waitFor();
-  await indexLoaded;
   assert.equal(await page.locator('#searchResults .result').count(), 0);
   assert.match(await page.locator('#searchResults').innerText(), /Start typing to search games/i);
   await page.locator('#gameSearch').fill('BioShock');
@@ -374,6 +371,23 @@ async function mobileAnswerSearch(browser, server) {
   await context.close();
 }
 
+async function fingerprintedSearchIndexCache(browser, server) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const indexUrl = new URL(server.active.manifest.indexAsset, server.base).href;
+  let indexRequests = 0;
+  page.on('request', request => { if (request.url() === indexUrl) indexRequests++; });
+  await page.goto(server.base, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => Boolean(window.GameGridSearch?.ready?.()));
+  await page.waitForFunction(url => caches.open('gamegrid-search-index-v1').then(cache => cache.match(url)).then(Boolean), indexUrl);
+  assert.ok(indexRequests >= 1, 'first visit should fetch the fingerprinted index');
+  const initialRequests = indexRequests;
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => Boolean(window.GameGridSearch?.ready?.()));
+  assert.equal(indexRequests, initialRequests, 'reload should reuse the cached fingerprinted index');
+  await context.close();
+}
+
 async function modeExplainer(browser, server) {
   const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
   const activeMode = page.locator('.mode-tab.active');
@@ -388,7 +402,7 @@ async function modeExplainer(browser, server) {
     await page.locator('#infoDialog button[aria-label="Close"]').click();
     await trial.click();
     await page.waitForFunction(() => document.querySelector('.mode-tab.active')?.dataset.mode === 'Trial');
-    assert.match(await page.locator('#modeLabel').innerText(), /MAKER.*FACTS/i);
+    assert.match(await page.locator('#modeLabel').innerText(), /EXPERT FORMAT/i);
     assert.match(await page.locator('#challengeCopy').innerText(), /Rows are makers/i);
   }
   await context.close();
@@ -530,6 +544,7 @@ const tests = [
   ['stats normalisation and reset', statsNormalisationAndReset],
   ['first lazy-detail click', firstLazyDetailClick],
   ['answer search on a mobile viewport', mobileAnswerSearch],
+  ['fingerprinted search index cache', fingerprintedSearchIndexCache],
   ['mode explainer', modeExplainer],
   ['introduction walkthrough', onboardingWalkthrough],
   ['past and future puzzle navigation', puzzleNavigation],

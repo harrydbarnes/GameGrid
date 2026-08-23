@@ -11,6 +11,14 @@
     .filter(puzzle => puzzle.mode === mode())
     .slice()
     .sort((a, b) => String(a.date).localeCompare(String(b.date)) || Number(a.id) - Number(b.id));
+  const londonToday = () => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const value = type => parts.find(part => part.type === type)?.value;
+    return `${value('year')}-${value('month')}-${value('day')}`;
+  };
+  const utcToday = () => new Date().toISOString().slice(0, 10);
 
   const nav = document.createElement('div');
   nav.className = 'puzzle-nav';
@@ -32,7 +40,22 @@
   };
   previous.onclick = () => window.GameGridNavigation.go(-1);
   next.onclick = () => window.GameGridNavigation.go(1);
+  const alignTodayToLondon = () => {
+    const list = grids();
+    const utcCurrent = list.filter(puzzle => puzzle.date <= utcToday()).at(-1);
+    const londonCurrent = list.filter(puzzle => puzzle.date <= londonToday()).at(-1);
+    // Preserve an explicitly opened archive grid. Only correct the app's
+    // UTC-based "today" selection when London has already moved to tomorrow.
+    if (utcCurrent && londonCurrent && currentId() === String(utcCurrent.id) && utcCurrent.id !== londonCurrent.id) {
+      window.GameGridNavigation.go(list.indexOf(londonCurrent) - list.indexOf(utcCurrent));
+    }
+  };
   sync();
   new MutationObserver(sync).observe(title, { childList: true, characterData: true, subtree: true });
-  document.querySelector('#modeTabs')?.addEventListener('click', () => setTimeout(sync, 0));
+  document.querySelector('#modeTabs')?.addEventListener('click', () => setTimeout(() => {
+    sync();
+    alignTodayToLondon();
+  }, 0));
+  document.querySelector('.nav-btn[data-view="today"]')?.addEventListener('click', () => setTimeout(alignTodayToLondon, 0));
+  requestAnimationFrame(alignTodayToLondon);
 })();

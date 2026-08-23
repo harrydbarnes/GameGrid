@@ -35,6 +35,23 @@
     if(clue){e.preventDefault();e.stopImmediatePropagation();showCriterion(clue)}
   },true);
 
+  function installCriterionKeyboard(){
+    document.querySelectorAll('#grid .clue:not(.corner)').forEach(clue=>{
+      const label=clue.textContent.trim();
+      clue.tabIndex=0;
+      clue.setAttribute('role','button');
+      clue.setAttribute('aria-label',`${label}. Explain this criterion`);
+    });
+  }
+  installCriterionKeyboard();
+  document.addEventListener('keydown',event=>{
+    if((event.key!=='Enter'&&event.key!==' ')||!event.target.matches?.('#grid .clue:not(.corner)'))return;
+    event.preventDefault();
+    event.target.click();
+  });
+  const grid=$('#grid');
+  if(grid)new MutationObserver(installCriterionKeyboard).observe(grid,{childList:true,subtree:true});
+
   // Primary views replace the page's main content. Start each one at the top
   // instead of preserving an Archive scroll position on the shorter Stats or
   // Today view.
