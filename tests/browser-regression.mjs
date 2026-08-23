@@ -332,6 +332,7 @@ async function firstLazyDetailClick(browser, server) {
 async function mobileAnswerSearch(browser, server) {
   const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
   const indexUrl = new URL(server.active.manifest.indexAsset, server.base).href;
+  assert.equal(await page.locator('#searchDialog[open]').count(), 0, 'answer sheet must stay hidden until a grid cell is selected');
   const indexLoaded = page.waitForRequest(request => request.url() === indexUrl);
   await page.locator('#grid .cell.empty').first().click();
   await page.locator('#searchDialog[open]').waitFor();
