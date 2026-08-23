@@ -301,6 +301,41 @@ def criteria_are_temporally_compatible(first, second):
     return True
 
 
+NINTENDO_PLATFORMS=frozenset({
+    'Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES',
+    'Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS',
+    'Nintendo platform',
+})
+
+
+def platform_subset(subset, superset):
+    """Whether every platform matched by ``subset`` is also in ``superset``."""
+    if subset.get('kind') not in {'platform','platformAny'} or superset.get('kind') not in {'platform','platformAny'}:
+        return False
+    subset_values=set(subset.get('value', [])) if subset.get('kind')=='platformAny' else {subset.get('value')}
+    if superset.get('kind')=='platformAny':
+        return subset_values <= set(superset.get('value', []))
+    family=superset.get('value')
+    if family=='PlayStation':
+        return all(value=='PlayStation' or str(value).startswith('PlayStation') or value in {'PSP','PS Vita'} for value in subset_values)
+    if family=='Xbox':
+        return all(str(value).startswith('Xbox') for value in subset_values)
+    if family=='Nintendo':
+        return subset_values <= NINTENDO_PLATFORMS
+    return subset.get('kind')=='platform' and subset.get('value')==family
+
+
+def criteria_are_redundant(first, second):
+    """Detect one clue that fully implies the other within a grid cell."""
+    if first.get('kind')=='yearRange' and second.get('kind')=='yearRange':
+        first_range,second_range=first.get('value',[]),second.get('value',[])
+        if len(first_range)==2 and len(second_range)==2:
+            return (first_range[0]<=second_range[0] and first_range[1]>=second_range[1]) or (second_range[0]<=first_range[0] and second_range[1]>=first_range[1])
+    if first.get('kind')=='rating' and second.get('kind')=='rating':
+        return True
+    return platform_subset(first,second) or platform_subset(second,first)
+
+
 def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usage):
     if len(pool)<6:
         raise RuntimeError(f'{mode} has only {len(pool)} eligible clues; need at least 6')
@@ -324,6 +359,7 @@ def make_puzzle(mode,date,pid,recent,pool,pair_sets,rng,scoped_games,family_usag
             if tuple(ids) in recent:continue
             if any(r['kind']==c['kind'] and r['value']==c['value'] for r in rows for c in cols):continue
             if any(not criteria_are_temporally_compatible(r,c) for r in rows for c in cols):continue
+            if any(criteria_are_redundant(r,c) for r in rows for c in cols):continue
             cells=[pair_lookup(pair_sets,r['id'],c['id']) for r in rows for c in cols]
             ints=[len(c) for c in cells]
             if min(ints)<low or max(ints)>high:continue
