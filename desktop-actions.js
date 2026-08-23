@@ -5,8 +5,9 @@
   function puzzleUrl(){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('mode',mode());u.searchParams.set('puzzle',puzzleId());return u.toString()}
   function toast(t){const e=$('#toast');if(!e)return;e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1800)}
   async function shareGrid(){
-    const title=`GameGrid ${mode()} #${puzzleId()}`;
-    const text=`🎮 Today's GameGrid challenge\n${mode()} #${puzzleId()}\n\nNine squares. Nine games. How low can you score?`;
+    const grid=window.GameGridName?.(mode())||`${mode()}Grid`;
+    const title=`${grid} #${puzzleId()}`;
+    const text=`🎮 Today's ${grid} challenge\n${grid} #${puzzleId()}\n\nNine squares. Nine games. How low can you score?`;
     const url=puzzleUrl();
     try{if(navigator.share){await navigator.share({title,text,url});return}}catch(e){if(e?.name==='AbortError')return}
     const payload=`${text}\n\n${url}`;
@@ -18,7 +19,7 @@
     if(window.GameGridCriterionHelp?.showForNode?.(node))return true;
     const data=window.GAMEGRID_DATA;if(!data)return false;
     const pMode=mode(),id=Number(puzzleId());
-    const p=data.puzzles.find(x=>x.id===id&&x.mode===pMode)||data.puzzles.find(x=>x.id===id);if(!p)return false;
+    const p=data.puzzles.find(x=>x.id===id&&x.mode===pMode);if(!p)return false;
     const nodes=[...document.querySelectorAll('#grid .clue:not(.corner)')],idx=nodes.indexOf(node);if(idx<0)return false;
     const clueId=idx<3?p.cols[idx]:p.rows[idx-3],c=data.clues[clueId];if(!c)return false;
     const title=$('#infoTitle'),body=$('#infoBody'),dialog=$('#infoDialog');if(!title||!body||!dialog)return false;

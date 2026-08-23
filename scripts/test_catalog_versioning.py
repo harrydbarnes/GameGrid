@@ -9,6 +9,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CatalogueVersioningTests(unittest.TestCase):
+    def test_reset_schedule_starts_today_and_numbers_each_mode_from_one(self):
+        self.assertEqual(catalog.START.isoformat(), '2026-08-23')
+        source = (ROOT / 'scripts' / 'build_catalog_v3.py').read_text(encoding='utf-8')
+        # The counter is deliberately initialised inside the mode loop.
+        self.assertIn("d=START;mode_ps=[];pid=1", source)
+
+    def test_duplicate_per_mode_ids_are_always_looked_up_with_the_mode(self):
+        app = (ROOT / 'app.js').read_text(encoding='utf-8')
+        self.assertIn("p.id==b.dataset.id&&p.mode===b.dataset.mode", app)
+        self.assertIn('data-mode="${p.mode}"', app)
+        names = (ROOT / 'grid-names.js').read_text(encoding='utf-8')
+        self.assertIn("Modern:'ModernGrid'", names)
+        self.assertIn("Classic:'GameGrid'", names)
+
     def test_catalogue_hash_is_stable_and_changes_with_catalogue_content(self):
         clues = [{'id': 'action', 'kind': 'genre', 'value': 'action'}]
         games = [{'id': '1', 'title': 'Example', 'year': 2000}]
