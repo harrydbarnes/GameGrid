@@ -255,20 +255,31 @@ def scale_for(scoped_games):
     return max(1.0,(scoped_games/6000)**0.5)
 
 
+STANDARD_MODES=frozenset({'Classic','Retro','Modern','Nintendo','PlayStation','Xbox'})
+
+
 def limits(mode,level,scoped_games):
     scale=scale_for(scoped_games)
     # Each level remains valid, but progressively relaxes puzzle aesthetics so the build never fails just because a random search is unlucky.
+    # Standard play should always leave a genuinely discoverable pool. Deep Cut
+    # and Trial intentionally retain their more specialist three-answer floor.
+    if mode in STANDARD_MODES:
+        if level==0:
+            if mode=='Classic': return 10,round(300*scale),round(30*scale),3
+            return 10,round(180*scale),round(24*scale),3
+        if level==1:
+            if mode=='Classic': return 10,round(420*scale),round(22*scale),4
+            return 10,round(260*scale),round(18*scale),4
+        return 10,round(600*scale),round(15*scale),6
     if level==0:
         if mode=='Deep Cut': return 3,round(45*scale),round(18*scale),3
-        if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern','Trial'}: return 4,round(180*scale),round(24*scale),3
-        return 5,round(300*scale),round(30*scale),3
+        return 4,round(180*scale),round(24*scale),3
     if level==1:
         if mode=='Deep Cut': return 3,round(70*scale),round(15*scale),4
-        if mode in {'Nintendo','PlayStation','Xbox','Retro','Modern','Trial'}: return 3,round(260*scale),round(18*scale),4
-        return 3,round(420*scale),round(22*scale),4
+        return 3,round(260*scale),round(18*scale),4
     if mode=='Deep Cut': return 3,round(120*scale),round(12*scale),6
     if mode=='Trial': return 3,round(600*scale),round(12*scale),6
-    return 3,round(600*scale),round(15*scale),6
+    return 3,round(600*scale),round(12*scale),6
 
 
 def score_counts(ints,mode,scoped_games):
