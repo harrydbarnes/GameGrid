@@ -385,10 +385,11 @@ async function themeControlAndMobileHeader(browser, server) {
     return { width: style.width, height: style.height, fill: style.fill, strokeWidth: style.strokeWidth };
   }), { width: '18px', height: '18px', fill: 'none', strokeWidth: '1.5px' });
 
-  const todayShortcut = page.locator('.today-nav-link');
-  assert.equal(await todayShortcut.isVisible(), true);
-  assert.equal(await todayShortcut.getAttribute('href'), 'https://harrydbarnes.github.io/Deviate/#daily');
-  assert.equal(await todayShortcut.getAttribute('aria-label'), 'Open Deviate daily');
+  const deviateShortcut = page.locator('.deviate-nav-link');
+  assert.equal(await deviateShortcut.isVisible(), true);
+  assert.equal(await deviateShortcut.innerText(), 'Deviate.');
+  assert.equal(await deviateShortcut.getAttribute('href'), 'https://harrydbarnes.github.io/Deviate/#daily');
+  assert.equal(await deviateShortcut.getAttribute('aria-label'), 'Open Deviate daily');
   assert.equal(await page.locator('.stats-icon-btn').isVisible(), true);
 
   const beforeTheme = await page.evaluate(() => document.documentElement.dataset.theme);
