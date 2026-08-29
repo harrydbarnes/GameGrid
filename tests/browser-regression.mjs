@@ -371,6 +371,35 @@ async function mobileAnswerSearch(browser, server) {
   await context.close();
 }
 
+async function themeControlAndMobileHeader(browser, server) {
+  const { context, page } = await boot(browser, server, { viewport: { width: 390, height: 844 }, hasTouch: true });
+  const theme = page.locator('#themeBtn');
+  const icon = theme.locator('svg');
+  const crescent = 'M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z';
+
+  assert.equal(await icon.count(), 1);
+  assert.equal(await icon.getAttribute('viewBox'), '0 0 24 24');
+  assert.equal(await icon.locator('path').getAttribute('d'), crescent);
+  assert.deepEqual(await icon.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { width: style.width, height: style.height, fill: style.fill, strokeWidth: style.strokeWidth };
+  }), { width: '18px', height: '18px', fill: 'none', strokeWidth: '1.5px' });
+
+  const deviateShortcut = page.locator('.deviate-nav-link');
+  assert.equal(await deviateShortcut.isVisible(), true);
+  assert.equal(await deviateShortcut.innerText(), 'Deviate.');
+  assert.equal(await deviateShortcut.getAttribute('href'), 'https://harrydbarnes.github.io/Deviate/#daily');
+  assert.equal(await deviateShortcut.getAttribute('aria-label'), 'Open Deviate daily');
+  assert.equal(await page.locator('.stats-icon-btn').isVisible(), true);
+
+  const beforeTheme = await page.evaluate(() => document.documentElement.dataset.theme);
+  assert.match(await theme.getAttribute('aria-label'), /^Switch to (light|dark) theme$/);
+  await theme.click();
+  await page.waitForFunction(previous => document.documentElement.dataset.theme !== previous, beforeTheme);
+  assert.equal(await theme.getAttribute('aria-label'), `Switch to ${beforeTheme === 'dark' ? 'dark' : 'light'} theme`);
+  await context.close();
+}
+
 async function fingerprintedSearchIndexCache(browser, server) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -544,6 +573,7 @@ const tests = [
   ['stats normalisation and reset', statsNormalisationAndReset],
   ['first lazy-detail click', firstLazyDetailClick],
   ['answer search on a mobile viewport', mobileAnswerSearch],
+  ['theme control and mobile header', themeControlAndMobileHeader],
   ['fingerprinted search index cache', fingerprintedSearchIndexCache],
   ['mode explainer', modeExplainer],
   ['introduction walkthrough', onboardingWalkthrough],
