@@ -387,7 +387,18 @@ async function themeControlAndMobileHeader(browser, server) {
 
   const deviateShortcut = page.locator('.deviate-nav-link');
   assert.equal(await deviateShortcut.isVisible(), true);
-  assert.equal(await deviateShortcut.innerText(), 'Deviate.');
+  assert.equal(await deviateShortcut.textContent(), 'Deviate.');
+  const headerHeights = await page.evaluate(() => {
+    const shortcut = document.querySelector('.deviate-nav-link');
+    const brandMark = document.querySelector('.brand-mark');
+    return {
+      shortcut: shortcut.getBoundingClientRect().height,
+      brandMark: brandMark.getBoundingClientRect().height,
+      whiteSpace: getComputedStyle(shortcut).whiteSpace
+    };
+  });
+  assert.equal(headerHeights.whiteSpace, 'nowrap');
+  assert.ok(headerHeights.shortcut <= headerHeights.brandMark, `Deviate shortcut is taller than GameGrid brand: ${JSON.stringify(headerHeights)}`);
   assert.equal(await deviateShortcut.getAttribute('href'), 'https://harrydbarnes.github.io/Deviate/#daily');
   assert.equal(await deviateShortcut.getAttribute('aria-label'), 'Open Deviate daily');
   assert.equal(await page.locator('.stats-icon-btn').isVisible(), true);
