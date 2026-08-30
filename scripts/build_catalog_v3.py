@@ -159,7 +159,7 @@ def details_asset_name(details_text):
 
 
 def catalogue_hash(games,clue_specs):
-    return fingerprint({'games':games,'clues':clue_specs})
+    return fingerprint({'games':games,'clues':clue_specs,'publisherAliases':base.KNOWN_PUBLISHER_ALIASES})
 
 
 def catalogue_assets(build_hash):
@@ -328,7 +328,10 @@ def limits(mode,level,scoped_games):
     if level==1:
         if mode=='Deep Cut': return 3,round(70*scale),round(15*scale),4
         return 3,round(260*scale),round(18*scale),4
-    if mode=='Deep Cut': return 3,round(120*scale),round(12*scale),6
+    # Correct timestamp parsing broadens the deep-cut candidate pool. Keep its
+    # three-answer floor, but give the final fallback enough upper headroom to
+    # find a valid varied grid in the larger, correctly dated catalogue.
+    if mode=='Deep Cut': return 3,round(240*scale),round(12*scale),6
     if mode=='Trial': return 3,round(600*scale),round(12*scale),6
     return 3,round(600*scale),round(12*scale),6
 
@@ -490,6 +493,11 @@ def main():
     published,published_game_ids=load_published_catalogue(os.environ.get('GAMEGRID_PUBLISHED_CATALOGUE_DIR'))
     puzzles,preserved_count=preserve_published_puzzles(puzzles,published,published_through())
     puzzle_game_ids.update(published_game_ids)
+    # Keep reviewed first-party corrections available even when a published
+    # puzzle predates the correction and therefore did not select the title.
+    # This lets the browser apply the corrected rule without reopening the
+    # historical puzzle generator.
+    puzzle_game_ids.update(game['id'] for game in playable_games if base.known_publisher_aliases(game))
     puzzle_games=[game for game in games if game['id'] in puzzle_game_ids]
     catalog_hash=catalogue_hash(games,all_specs)
     _,build_hash=version_puzzles(puzzles,catalog_hash,{'puzzleGameIds':sorted(puzzle_game_ids),'publisherAliases':base.KNOWN_PUBLISHER_ALIASES})

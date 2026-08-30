@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import ast,csv,datetime as dt,hashlib,io,json,math,random,re,sys,urllib.request
+import ast,csv,datetime as dt,hashlib,io,json,math,random,re,sys,unicodedata,urllib.request
 
 SOURCES=[
 ('Nintendo','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_Nintendo.csv'),
@@ -99,12 +99,20 @@ def parse_any(v,keep_numeric=False):
 
 def year_of(v):
     s=str(v or '')
-    m=re.search(r'(19|20)\d{2}',s)
-    if m:return int(m.group())
     try:
         n=float(s)
-        if n>100000000:return dt.datetime.utcfromtimestamp(n).year
+        if math.isfinite(n):
+            # IGDB exports Unix timestamps, including millisecond timestamps
+            # in some source snapshots. Checking for a four-digit substring
+            # first turns values such as 1640995200 into the year 2000.
+            timestamp=n/1000 if n>100000000000 else n
+            if timestamp>100000000:
+                return dt.datetime.fromtimestamp(timestamp,dt.timezone.utc).year
+            if 1970<=n<=dt.date.today().year+1:
+                return int(n)
     except:pass
+    m=re.search(r'(19|20)\d{2}',s)
+    if m:return int(m.group())
     return 0
 
 def num(v):
@@ -218,18 +226,140 @@ def publisher_family(value):
 
 
 # The upstream snapshot occasionally omits involved-company metadata for an
-# otherwise well-known title. Keep small, reviewed corrections in the browser
-# bootstrap so Trial does not reject an answer for a missing source field. Do
-# not feed these aliases back into puzzle generation: published answer counts
-# must remain stable when the source snapshot is refreshed.
+# otherwise well-known title. These are reviewed first-party corrections, not
+# platform-based guesses: a platform alone is not enough to infer a publisher.
+# Keys use the normalised title, with an optional ``|year`` suffix for titles
+# whose publisher changed between releases (for example Doom and Prey).
 KNOWN_PUBLISHER_ALIASES={
+    # Sony Interactive Entertainment / Sony Computer Entertainment.
+    'astro bot': ('Sony Interactive Entertainment',),
+    "astro s playroom": ('Sony Interactive Entertainment',),
+    'bloodborne': ('Sony Interactive Entertainment',),
+    'days gone': ('Sony Interactive Entertainment',),
+    "demon s souls": ('Sony Interactive Entertainment',),
+    'detroit become human': ('Sony Interactive Entertainment',),
+    'dreams': ('Sony Interactive Entertainment',),
+    'god of war': ('Sony Interactive Entertainment',),
+    'god of war ii special edition': ('Sony Interactive Entertainment',),
+    'god of war iii remastered': ('Sony Interactive Entertainment',),
+    'god of war ragnarok': ('Sony Interactive Entertainment',),
+    'gran turismo 7': ('Sony Interactive Entertainment',),
+    'gravity rush 2': ('Sony Interactive Entertainment',),
+    'horizon zero dawn': ('Sony Interactive Entertainment',),
+    'infamous second son': ('Sony Interactive Entertainment',),
+    'killzone shadow fall': ('Sony Interactive Entertainment',),
+    'knack': ('Sony Interactive Entertainment',),
+    'knack 2': ('Sony Interactive Entertainment',),
+    'littlebigplanet 3': ('Sony Interactive Entertainment',),
+    'marvel s spider man': ('Sony Interactive Entertainment',),
+    'marvel s spider man 2': ('Sony Interactive Entertainment',),
+    'marvel s spider man miles morales': ('Sony Interactive Entertainment',),
+    'ratchet clank': ('Sony Interactive Entertainment',),
+    'ratchet clank rift apart': ('Sony Interactive Entertainment',),
+    'sackboy a big adventure': ('Sony Interactive Entertainment',),
+    'shadow of the colossus': ('Sony Interactive Entertainment',),
+    'tearaway unfolded': ('Sony Interactive Entertainment',),
+    'the last guardian': ('Sony Interactive Entertainment',),
+    'the last of us': ('Sony Interactive Entertainment',),
+    'the last of us part i': ('Sony Interactive Entertainment',),
     'the last of us part ii': ('Sony Interactive Entertainment',),
+    'the last of us remastered': ('Sony Interactive Entertainment',),
+    'the order 1886': ('Sony Interactive Entertainment',),
+    'uncharted 4 a thief s end': ('Sony Interactive Entertainment',),
+    'uncharted the lost legacy': ('Sony Interactive Entertainment',),
+    'uncharted the nathan drake collection': ('Sony Interactive Entertainment',),
+    'until dawn': ('Sony Interactive Entertainment',),
+    # Nintendo.
+    'animal crossing new horizons': ('Nintendo',),
+    'arms': ('Nintendo',),
+    'bayonetta 2': ('Nintendo',),
+    'bayonetta 3': ('Nintendo',),
+    'fire emblem three houses': ('Nintendo',),
+    'kirby and the forgotten land': ('Nintendo',),
+    'kirby star allies': ('Nintendo',),
+    'legend of zelda breath of the wild': ('Nintendo',),
+    'legend of zelda link s awakening': ('Nintendo',),
+    'luigi s mansion 3': ('Nintendo',),
+    'mario kart 8 deluxe': ('Nintendo',),
+    'mario party superstars': ('Nintendo',),
+    'metroid prime remastered': ('Nintendo',),
+    'new pokemon snap': ('Nintendo',),
+    'new super mario bros u deluxe': ('Nintendo',),
+    'paper mario the origami king': ('Nintendo',),
+    'pikmin 4': ('Nintendo',),
+    'pokemon brilliant diamond': ('Nintendo',),
+    'pokemon let s go eevee': ('Nintendo',),
+    'pokemon let s go pikachu': ('Nintendo',),
+    'pokemon scarlet': ('Nintendo',),
+    'pokemon shield': ('Nintendo',),
+    'pokemon sword': ('Nintendo',),
+    'pokemon violet': ('Nintendo',),
+    'ring fit adventure': ('Nintendo',),
+    'splatoon 2': ('Nintendo',),
+    'splatoon 3': ('Nintendo',),
+    'super mario 3d all stars': ('Nintendo',),
+    'super mario 3d world bowser s fury': ('Nintendo',),
+    'super mario maker 2': ('Nintendo',),
+    'super mario odyssey': ('Nintendo',),
+    'super smash bros ultimate': ('Nintendo',),
+    'the legend of zelda breath of the wild': ('Nintendo',),
+    'the legend of zelda link s awakening': ('Nintendo',),
+    'the legend of zelda tears of the kingdom': ('Nintendo',),
+    'xenoblade chronicles 2': ('Nintendo',),
+    'xenoblade chronicles 3': ('Nintendo',),
+    # Xbox Game Studios and Bethesda, treated as one maker family by Trial.
+    'age of empires iv': ('Xbox Game Studios',),
+    'forza horizon 4': ('Xbox Game Studios',),
+    'forza horizon 5': ('Xbox Game Studios',),
+    'gears 5': ('Xbox Game Studios',),
+    'ghostwire tokyo': ('Bethesda Softworks',),
+    'grounded': ('Xbox Game Studios',),
+    'halo 4': ('Xbox Game Studios',),
+    'halo 5 guardians': ('Xbox Game Studios',),
+    'halo infinite': ('Xbox Game Studios',),
+    'halo the master chief collection': ('Xbox Game Studios',),
+    'halo wars 2': ('Xbox Game Studios',),
+    'microsoft flight simulator': ('Xbox Game Studios',),
+    'ori and the blind forest': ('Xbox Game Studios',),
+    'ori and the will of the wisps': ('Xbox Game Studios',),
+    'quantum break': ('Xbox Game Studios',),
+    'recore': ('Xbox Game Studios',),
+    'redfall': ('Bethesda Softworks',),
+    'sea of thieves': ('Xbox Game Studios',),
+    'state of decay 2': ('Xbox Game Studios',),
+    'starfield': ('Bethesda Softworks',),
+    'sunset overdrive': ('Microsoft Studios',),
+    'dishonored 2': ('Bethesda Softworks',),
+    'doom eternal': ('Bethesda Softworks',),
+    'fallout 4': ('Bethesda Softworks',),
+    'fallout 76': ('Bethesda Softworks',),
+    'the elder scrolls v skyrim': ('Bethesda Softworks',),
+    'the elder scrolls v skyrim special edition': ('Bethesda Softworks',),
+    'the evil within 2': ('Bethesda Softworks',),
+    'wolfenstein the new order': ('Bethesda Softworks',),
+    'wolfenstein ii the new colossus': ('Bethesda Softworks',),
+    'doom|2016': ('Bethesda Softworks',),
+    'killer instinct|2013': ('Microsoft Studios',),
+    'prey|2017': ('Bethesda Softworks',),
 }
 
 
 def known_publisher_aliases(game):
-    title=re.sub(r'[^a-z0-9]+',' ',str(game.get('title','')).casefold()).strip()
-    return list(KNOWN_PUBLISHER_ALIASES.get(title,()))
+    title=unicodedata.normalize('NFKD',str(game.get('title','')).casefold()).encode('ascii','ignore').decode()
+    title=re.sub(r'[^a-z0-9]+',' ',title).strip()
+    aliases=[]
+    for key in (title,f"{title}|{game.get('year', '')}"):
+        for value in KNOWN_PUBLISHER_ALIASES.get(key,()):
+            if value not in aliases:aliases.append(value)
+    return aliases
+
+
+def publisher_values(game):
+    """Return source publishers plus reviewed corrections for matching."""
+    values=list(game.get('publishers',[]) or [])
+    for value in known_publisher_aliases(game):
+        if value not in values:values.append(value)
+    return values
 
 
 def trial_specs(games,min_games=3):
@@ -250,7 +380,7 @@ def trial_specs(games,min_games=3):
         game_id=game.get('id')
         if game_id is None:continue
         for kind,key,prefix in fields:
-            values=game.get(key,[]) if key!='franchise' else [game.get(key)]
+            values=publisher_values(game) if key=='publishers' else (game.get(key,[]) if key!='franchise' else [game.get(key)])
             if not isinstance(values,(list,tuple)):values=[values]
             for raw in values:
                 value=str(raw or '').strip()
@@ -271,8 +401,8 @@ def trial_specs(games,min_games=3):
 def match(g,s):
     k=s['kind'];v=s['value']
     if k=='developer':return v in g.get('developers',[])
-    if k=='publisher':return v in g.get('publishers',[])
-    if k=='publisherFamily':return any(publisher_family(value)==v for value in g.get('publishers',[]))
+    if k=='publisher':return v in publisher_values(g)
+    if k=='publisherFamily':return any(publisher_family(value)==v for value in publisher_values(g))
     if k=='franchise':return g.get('franchise','')==v
     if k=='platform':
         if v=='PlayStation':return any(p.startswith('PlayStation') or p in {'PSP','PS Vita'} for p in g['platforms'])
@@ -327,7 +457,7 @@ def js_clues(specs=None):
         'const clueSpecs='+literal+';\n'
         "const clues=Object.fromEntries(clueSpecs.map(s=>[s.id,{label:s.label,test:g=>{const k=s.kind,v=s.value;"
         "if(k==='developer')return (g.developers||[]).includes(v);"
-        "if(k==='publisher')return (g.publishers||[]).includes(v);"
+        "if(k==='publisher'){const publishers=[...(g.publishers||[]),...(g.publisherAliases||[])];return publishers.includes(v)}"
         "if(k==='publisherFamily'){const q=value=>String(value||'').toLowerCase();const family=value=>{const folded=q(value);if(folded.includes('nintendo'))return 'Nintendo';if(folded.includes('sony'))return 'Sony';if(folded.includes('microsoft')||folded.includes('xbox')||folded.includes('bethesda'))return 'Xbox / Microsoft';if(folded.includes('electronic arts'))return 'EA';if(folded.includes('square enix'))return 'Square Enix';if(folded.includes('rockstar'))return 'Rockstar';if(folded.includes('capcom'))return 'Capcom';if(folded.includes('ubisoft'))return 'Ubisoft';if(folded.includes('bandai namco'))return 'Bandai Namco';return ''};const publishers=[...(g.publishers||[]),...(g.publisherAliases||[])];return publishers.some(p=>family(p)===v)}"
         "if(k==='franchise')return String(g.franchise||'')===v;"
         "if(k==='platform'){if(v==='PlayStation')return (g.platforms||[]).some(p=>p.startsWith('PlayStation')||['PSP','PS Vita'].includes(p));if(v==='Xbox')return (g.platforms||[]).some(p=>p.startsWith('Xbox'));if(v==='Nintendo')return (g.platforms||[]).some(p=>['Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES','Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS','Nintendo platform'].includes(p));return (g.platforms||[]).includes(v)}"
