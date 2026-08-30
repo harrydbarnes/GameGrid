@@ -24,6 +24,9 @@ class PuzzleRuleTests(unittest.TestCase):
         self.assertEqual(puzzles.limits('Deep Cut', 0, 6000)[0], 3)
         self.assertEqual(puzzles.limits('Trial', 0, 6000)[0], 4)
 
+    def test_deep_cut_final_level_has_headroom_for_the_correctly_dated_catalogue(self):
+        self.assertGreaterEqual(puzzles.limits('Deep Cut', 2, 12524)[1], 300)
+
     def test_balanced_grid_has_every_core_knowledge_family(self):
         criteria = [
             clue('ps5', 'platform'), clue('adventure', 'genre'),

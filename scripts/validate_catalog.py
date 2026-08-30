@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json,re,sys
+import json,re,sys,unicodedata
 import catalog_quality as quality
 import build_catalog_v2 as modes
 import build_catalog_v3 as puzzle_rules
@@ -148,13 +148,19 @@ if not puzzles_match:
 else:
     indexed={}
     family_usage={}
+    published_cutoff=puzzle_rules.published_through().isoformat()
     for puzzle in json.loads(puzzles_match.group(1)):
         if puzzle['mode'] not in indexed:
             indexed[puzzle['mode']]=modes.build_index(playable_games,puzzle['mode'])[3]
         pairs=indexed[puzzle['mode']]
-        expected=[len(modes.pair_lookup(pairs,row,col)) for row in puzzle['rows'] for col in puzzle['cols']]
-        if puzzle['answerCounts']!=expected:
-            errors.append(f'puzzle {puzzle["id"]} was not generated from the playable pool')
+        # Published puzzles keep their stored definitions and counts. A
+        # corrected publisher or date can legitimately add a newly recognised
+        # answer to an old grid, but must never cause that grid to be silently
+        # regenerated. Future puzzles are checked against the current matcher.
+        if puzzle['date']>published_cutoff:
+            expected=[len(modes.pair_lookup(pairs,row,col)) for row in puzzle['rows'] for col in puzzle['cols']]
+            if puzzle['answerCounts']!=expected:
+                errors.append(f'puzzle {puzzle["id"]} was not generated from the playable pool')
         selected_specs=[clue_specs[criterion] for criterion in puzzle['rows']+puzzle['cols']]
         if not puzzle_rules.balanced_families(selected_specs):
             errors.append(f'puzzle {puzzle["id"]} does not use the balanced knowledge-family mix')
@@ -179,9 +185,14 @@ else:
 # A release-era smoke test.  These titles span the requested last twenty years
 # and catch both a truncated source catalogue and an outdated source snapshot.
 spot_checks=['Gears of War','BioShock','Mass Effect','Grand Theft Auto IV','Demon’s Souls','Red Dead Redemption','The Elder Scrolls V: Skyrim','The Last of Us','Grand Theft Auto V','The Witcher 3: Wild Hunt','The Legend of Zelda: Breath of the Wild','Red Dead Redemption 2','Death Stranding','Animal Crossing: New Horizons','Elden Ring','Baldur’s Gate 3','Alan Wake 2','Astro Bot','Clair Obscur: Expedition 33']
-titles={game['title'] for game in games}
+def title_key(value):
+    folded=unicodedata.normalize('NFKD',str(value).casefold()).encode('ascii','ignore').decode()
+    return re.sub(r'[^a-z0-9]+','',folded)
+
+
+titles={title_key(game['title']) for game in games}
 for title in spot_checks:
-    if title not in titles:errors.append(f'missing required catalogue spot-check: {title}')
+    if title_key(title) not in titles:errors.append(f'missing required catalogue spot-check: {title}')
 if errors:
     print('\n'.join('ERROR: '+x for x in errors));sys.exit(1)
 print(f"Validated {report['games']:,} games, {report['clues']} clues and {report['puzzles']} puzzles ({report['first']} to {report['last']}).")

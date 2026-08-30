@@ -7,6 +7,11 @@ import build_catalog_v3 as catalog_v3
 
 
 class CatalogueCriteriaTests(unittest.TestCase):
+    def test_unix_timestamps_are_converted_before_year_substrings(self):
+        self.assertEqual(catalog.year_of('1640995200'), 2022)
+        self.assertEqual(catalog.year_of('1640995200000'), 2022)
+        self.assertEqual(catalog.year_of('2020-01-01'), 2020)
+
     def test_console_generation_matches_any_platform_in_that_generation(self):
         sixth = {'kind': 'platformAny', 'value': ['PlayStation 2', 'GameCube', 'Xbox']}
         self.assertTrue(catalog.match({'platforms': ['GameCube']}, sixth))
@@ -53,6 +58,29 @@ class CatalogueCriteriaTests(unittest.TestCase):
             catalog_v3.detail_index([game])['26192']['publishers'],
             ['Sony Interactive Entertainment'],
         )
+
+    def test_reviewed_first_party_aliases_are_used_by_the_canonical_matcher(self):
+        cases = [
+            ('God of War', 2018, 'Sony'),
+            ('God of War Ragnarök', 2022, 'Sony'),
+            ('Horizon Zero Dawn', 2017, 'Sony'),
+            ('Bloodborne', 2015, 'Sony'),
+            ("Uncharted 4: A Thief's End", 2016, 'Sony'),
+            ('Animal Crossing: New Horizons', 2020, 'Nintendo'),
+            ('Super Mario Odyssey', 2017, 'Nintendo'),
+            ('Halo Infinite', 2021, 'Xbox / Microsoft'),
+            ('Starfield', 2023, 'Xbox / Microsoft'),
+        ]
+        for title, year, family in cases:
+            game = {'id': title, 'title': title, 'year': year, 'publishers': []}
+            criterion = {'kind': 'publisherFamily', 'value': family}
+            self.assertTrue(catalog.known_publisher_aliases(game), title)
+            self.assertTrue(catalog.match(game, criterion), title)
+
+    def test_year_specific_publisher_aliases_do_not_bleed_into_other_releases(self):
+        for title, year in [('Doom', 1993), ('Prey', 2006), ('Killer Instinct', 1994)]:
+            game = {'id': title, 'title': title, 'year': year, 'publishers': []}
+            self.assertEqual(catalog.known_publisher_aliases(game), [])
 
 
 if __name__ == '__main__':
