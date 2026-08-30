@@ -208,17 +208,30 @@ async function releaseVersionPrompt(browser, server) {
   assert.match(await page.locator('.update-prompt').innerText(), /New version available.*refresh/i);
   await page.getByRole('button', { name: 'Refresh' }).click();
   await page.waitForURL(/release=fixture-release-b/);
-  await page.waitForSelector('#grid');
+  await waitForApp(page);
   assert.equal(await page.locator('.update-prompt').count(), 0);
   await context.close();
+}
+
+async function waitForApp(page) {
+  await page.locator('#grid').waitFor({ state: 'visible' });
+  await page.waitForFunction(() => Boolean(window.GAMEGRID_APP_READY && window.GAMEGRID_DATA?.games?.length));
+}
+
+async function navigateApp(page, url) {
+  await page.goto(url, { waitUntil: 'commit' });
+  await waitForApp(page);
+}
+
+async function reloadApp(page) {
+  await page.reload({ waitUntil: 'commit' });
+  await waitForApp(page);
 }
 
 async function boot(browser, server, options = {}) {
   const context = await browser.newContext(options);
   const page = await context.newPage();
-  await page.goto(server.base, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#grid');
-  await page.waitForFunction(() => Boolean(window.GAMEGRID_DATA?.games?.length));
+  await navigateApp(page, server.base);
   return { context, page };
 }
 
@@ -257,8 +270,7 @@ async function malformedStorageBoot(browser, server) {
     localStorage.setItem('gamegrid:stats', '{not-json');
   });
   const page = await context.newPage();
-  await page.goto(server.base, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#grid');
+  await navigateApp(page, server.base);
   const state = await page.evaluate(() => ({
     stats: window.GameGridStats.read(),
     raw: localStorage.getItem('gamegrid:stats'),
@@ -417,12 +429,12 @@ async function fingerprintedSearchIndexCache(browser, server) {
   const indexUrl = new URL(server.active.manifest.indexAsset, server.base).href;
   let indexRequests = 0;
   page.on('request', request => { if (request.url() === indexUrl) indexRequests++; });
-  await page.goto(server.base, { waitUntil: 'domcontentloaded' });
+  await navigateApp(page, server.base);
   await page.waitForFunction(() => Boolean(window.GameGridSearch?.ready?.()));
   await page.waitForFunction(url => caches.open('gamegrid-search-index-v1').then(cache => cache.match(url)).then(Boolean), indexUrl);
   assert.ok(indexRequests >= 1, 'first visit should fetch the fingerprinted index');
   const initialRequests = indexRequests;
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await reloadApp(page);
   await page.waitForFunction(() => Boolean(window.GameGridSearch?.ready?.()));
   assert.equal(indexRequests, initialRequests, 'reload should reuse the cached fingerprinted index');
   await context.close();
@@ -489,8 +501,7 @@ async function trialPublisherCorrection(browser, server) {
 async function onboardingWalkthrough(browser, server) {
   const context = await browser.newContext();
   const page = await context.newPage();
-  await page.goto(`${server.base}?onboarding=1`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#grid');
+  await navigateApp(page, `${server.base}?onboarding=1`);
   const tour = page.locator('.gamegrid-onboarding');
   await tour.waitFor();
   assert.equal(await tour.locator('.gamegrid-onboarding-progress span').count(), 4);
@@ -548,8 +559,7 @@ async function splitActionLayout(browser, server) {
     state.finished = false;
     localStorage.setItem(key, JSON.stringify(state));
   });
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#grid');
+  await reloadApp(page);
   await action.waitFor();
   const buttons = action.locator('button:visible');
   assert.equal(await buttons.count(), 2);
@@ -563,8 +573,7 @@ async function splitActionLayout(browser, server) {
     state.finished = true;
     localStorage.setItem(key, JSON.stringify(state));
   });
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#grid');
+  await reloadApp(page);
   await action.waitFor();
   assert.equal(await action.locator('button:visible').count(), 1);
   assert.equal(await action.locator('.restart-btn').isVisible(), true);
@@ -610,7 +619,7 @@ async function staleAssetMismatch(browser, server) {
     contentType: 'application/javascript',
     body: manifestSource(stale),
   }));
-  await page.goto(server.base, { waitUntil: 'domcontentloaded' });
+  await page.goto(server.base, { waitUntil: 'commit' });
   await page.locator('.catalog-load-error').waitFor();
   const message = await page.locator('.catalog-load-error').innerText();
   assert.match(message, /catalogue and puzzle schedule do not match/i);
