@@ -60,7 +60,8 @@ def compact_game(row):
     return {'id':row[0],'title':row[1],'year':row[2],'platforms':row[3],'tags':row[4],'rating':row[5],'ratingsCount':row[6],
             'developers':row[7] if len(row)>7 and isinstance(row[7],list) else [],
             'publishers':row[8] if len(row)>8 and isinstance(row[8],list) else [],
-            'franchise':row[9] if len(row)>9 else ''}
+            'franchise':row[9] if len(row)>9 else '',
+            'publisherAliases':row[10] if len(row)>10 and isinstance(row[10],list) else []}
 
 games=[compact_game(row) for row in json.loads(index_match.group(1))]
 for game in games:
@@ -69,7 +70,7 @@ for game in games:
         if details.get(key):game[key]=details[key]
 if 'importScripts(' not in search_text or f'./{index_asset}' not in search_text:
     errors.append('search worker does not import the fingerprinted compact index')
-puzzle_games_match=re.search(r'const games=(\[.*?\])\.map\(\(\[id,title,year,platforms,tags,rating,ratingsCount(?:,developers,publishers,franchise)?\]',text,re.S)
+puzzle_games_match=re.search(r'const games=(\[.*?\])\.map\(\(\[id,title,year,platforms,tags,rating,ratingsCount(?:,developers,publishers,franchise,publisherAliases)?\]',text,re.S)
 if not puzzle_games_match:
     errors.append('unable to read the compact puzzle bootstrap data')
     puzzle_games=[]
@@ -88,8 +89,12 @@ if f'"detailsAsset":"{details_asset}"' not in text:
     errors.append('catalogue data and manifest details assets disagree')
 if report.get('puzzleGameCount')!=len(puzzle_games):
     errors.append('catalogue report puzzle bootstrap count does not match generated data')
+if report.get('searchableGameCount')!=len(puzzle_games):
+    errors.append('catalogue report searchable-game count does not match generated data')
 if not {game['id'] for game in puzzle_games}.issubset({game['id'] for game in games}):
     errors.append('puzzle bootstrap contains a game missing from the full index')
+if {game['id'] for game in puzzle_games}!={game['id'] for game in games}:
+    errors.append('search index and puzzle bootstrap contain different game sets')
 if report['games']<20000:errors.append('expected at least 20,000 games; catalogue may have been truncated')
 if report.get('selection')!='all eligible source records (no popularity cap)':errors.append('catalogue report does not confirm uncapped source selection')
 clue_counts=report.get('clueCounts',{})
@@ -97,16 +102,25 @@ clue_counts=report.get('clueCounts',{})
 # catalogue numerically large but makes genre intersections effectively empty.
 if clue_counts.get('adventure',0)<10000:errors.append('Adventure coverage is unexpectedly low; genre IDs may not have been resolved')
 if clue_counts.get('xbox',0)<5000:errors.append('Xbox coverage is unexpectedly low; platform IDs may not have been resolved')
+# The compact browser index is deliberately the curated answer set, not the
+# entire raw source catalogue.  Recheck the searchable metrics against it, and
+# keep the raw-source quality floors backed by the build report generated while
+# the full source records were still available.
 coverage=quality.metadata_coverage(games)
-errors.extend(quality.metadata_quality_errors(games))
-errors.extend(quality.platform_coverage_errors(games))
-errors.extend(quality.platform_landmark_errors(games))
-if report.get('metadataCoverage')!=coverage:
-    errors.append('catalogue report metadata coverage does not match generated data')
-if report.get('platformCounts')!=quality.platform_counts(games):
-    errors.append('catalogue report platform counts do not match generated data')
-if report.get('playablePool')!=quality.playable_pool_report(games):
-    errors.append('catalogue report playable-pool summary does not match generated data')
+if report.get('searchableMetadataCoverage')!=coverage:
+    errors.append('catalogue report searchable metadata coverage does not match generated data')
+if report.get('searchablePlatformCounts')!=quality.platform_counts(games):
+    errors.append('catalogue report searchable platform counts do not match generated data')
+if report.get('searchablePool')!=quality.playable_pool_report(games):
+    errors.append('catalogue report searchable playable-pool summary does not match generated data')
+raw_coverage=report.get('metadataCoverage',{})
+for field,minimum in quality.METADATA_COVERAGE_THRESHOLDS.items():
+    if not isinstance(raw_coverage.get(field),dict) or raw_coverage[field].get('coverage',0)<minimum:
+        errors.append(f'{field} coverage is below the raw-catalogue quality floor')
+raw_platform_counts=report.get('platformCounts',{})
+for platform,minimum in quality.PLATFORM_MINIMUMS.items():
+    if raw_platform_counts.get(platform,0)<minimum:
+        errors.append(f'{platform} platform coverage is below the raw-catalogue quality floor')
 if not 40<=report['clues']<=5000:errors.append('expected 40–5,000 clue types')
 if report['puzzles']<90:errors.append('expected at least 90 daily puzzles')
 for mode in ('Classic','Retro','Modern','Nintendo','PlayStation','Xbox','Deep Cut','Trial'):
@@ -146,6 +160,8 @@ else:
             errors.append(f'puzzle {puzzle["id"]} does not use the balanced knowledge-family mix')
         if puzzle.get('difficulty')!=puzzle_rules.difficulty_for(puzzle['answerCounts']):
             errors.append(f'puzzle {puzzle["id"]} difficulty is not based on its smallest answer pool')
+        if puzzle['mode'] in puzzle_rules.STANDARD_MODES and puzzle['date']>puzzle_rules.published_through().isoformat() and min(puzzle['answerCounts'])<puzzle_rules.STANDARD_MIN_ANSWERS:
+            errors.append(f"future {puzzle['mode']} puzzle {puzzle['id']} has fewer than {puzzle_rules.STANDARD_MIN_ANSWERS} answers in a cell")
         families=('maker',)+puzzle_rules.CORE_FAMILIES if puzzle['mode']=='Trial' else puzzle_rules.CORE_FAMILIES
         usage=family_usage.setdefault(puzzle['mode'],{family:0 for family in families})
         for spec in selected_specs:

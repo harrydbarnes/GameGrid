@@ -33,6 +33,7 @@ class WorkerStub {
 }
 
 const document = {
+  readyState: 'complete',
   addEventListener(type, listener) { listeners.set(type, listener); },
   dispatchEvent(event) { dispatched.push(event); },
 };
@@ -43,6 +44,7 @@ const context = {
       searchAsset: 'search.0123456789abcdef.js',
     },
     GAMEGRID_DATA: { games: [{ id: 'game-1', title: 'Before', developers: ['Studio'], publishers: ['Publisher'], coverUrl: 'cover' }] },
+    setTimeout,
   },
   document,
   Worker: WorkerStub,
@@ -55,12 +57,9 @@ const context = {
 
 vm.runInNewContext(source, context);
 assert.equal(workerCount, 0);
-listeners.get('click')({ target: { closest: selector => selector === '#grid .cell.empty' ? {} : null } });
-await new Promise(resolve => setTimeout(resolve, 5));
+const results = await context.window.GameGridSearch.query('example', []);
 assert.equal(workerCount, 1);
 assert.equal(workerInstance.url, './search.0123456789abcdef.js');
-
-const results = await context.window.GameGridSearch.query('example', []);
 assert.equal(results.length, 1);
 assert.equal(results[0].id, 'game-1');
 assert.equal(context.window.GAMEGRID_DATA.games[0].title, 'Example Game');

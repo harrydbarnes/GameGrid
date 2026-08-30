@@ -70,6 +70,7 @@ class TrialModeTests(unittest.TestCase):
         self.assertEqual(row[7], ['Studio 0'])
         self.assertEqual(row[8], ['Publisher 0'])
         self.assertEqual(row[9], 'Series 0')
+        self.assertEqual(row[10], [])
 
 
 if __name__=='__main__':

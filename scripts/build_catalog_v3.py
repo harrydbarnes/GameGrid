@@ -252,11 +252,11 @@ def compact_index(games):
 
 def compact_puzzle_index(games):
     """Puzzle fields plus maker metadata needed by Trial intersections."""
-    return [[g['id'],g['title'],g['year'],g['platforms'],g['tags'],g['rating'],g['ratingsCount'],g.get('developers',[]),g.get('publishers',[]),g.get('franchise','')] for g in games]
+    return [[g['id'],g['title'],g['year'],g['platforms'],g['tags'],g['rating'],g['ratingsCount'],g.get('developers',[]),g.get('publishers',[]),g.get('franchise',''),base.known_publisher_aliases(g)] for g in games]
 
 
 def search_worker(index_asset):
-    """Search the full compact index off the main thread after first use."""
+    """Search the curated compact index off the main thread after first use."""
     index_literal=json.dumps('./'+index_asset)
     return """const INDEX_ASSET="""+index_literal+""";
 importScripts(INDEX_ASSET);
@@ -270,7 +270,14 @@ self.onmessage=event=>{const message=event.data||{};if(message.type!=='search')r
 
 
 def detail_index(games):
-    return {g['id']:{key:g[key] for key in ('developers','publishers','franchise','coverUrl') if g.get(key)} for g in games if any(g.get(key) for key in ('developers','publishers','franchise','coverUrl'))}
+    details={}
+    for game in games:
+        detail={key:game[key] for key in ('developers','publishers','franchise','coverUrl') if game.get(key)}
+        aliases=base.known_publisher_aliases(game)
+        if aliases:
+            detail['publishers']=list(dict.fromkeys(detail.get('publishers',[])+aliases))
+        if detail: details[game['id']]=detail
+    return details
 
 
 def version_puzzles(puzzles,expected_catalogue_hash,payload=None):
@@ -299,6 +306,7 @@ def scale_for(scoped_games):
 
 
 STANDARD_MODES=frozenset({'Classic','Retro','Modern','Nintendo','PlayStation','Xbox'})
+STANDARD_MIN_ANSWERS=15
 
 
 def limits(mode,level,scoped_games):
@@ -308,12 +316,12 @@ def limits(mode,level,scoped_games):
     # and Trial intentionally retain their more specialist three-answer floor.
     if mode in STANDARD_MODES:
         if level==0:
-            if mode=='Classic': return 10,round(300*scale),round(30*scale),3
-            return 10,round(180*scale),round(24*scale),3
+            if mode=='Classic': return STANDARD_MIN_ANSWERS,round(300*scale),round(30*scale),3
+            return STANDARD_MIN_ANSWERS,round(180*scale),round(24*scale),3
         if level==1:
-            if mode=='Classic': return 10,round(420*scale),round(22*scale),4
-            return 10,round(260*scale),round(18*scale),4
-        return 10,round(600*scale),round(15*scale),6
+            if mode=='Classic': return STANDARD_MIN_ANSWERS,round(420*scale),round(22*scale),4
+            return STANDARD_MIN_ANSWERS,round(260*scale),round(18*scale),4
+        return STANDARD_MIN_ANSWERS,round(600*scale),round(15*scale),6
     if level==0:
         if mode=='Deep Cut': return 3,round(45*scale),round(18*scale),3
         return 4,round(180*scale),round(24*scale),3
@@ -468,8 +476,13 @@ def generate(games):
 def main():
     games=base.build_games()
     if len(games)<4000:raise RuntimeError(f'Catalogue too small: {len(games)}')
-    # Keep the complete index for answer search, but only let entries with
-    # usable metadata and a small real-world participation signal shape grids.
+    source_quality_errors=quality.metadata_quality_errors(games)+quality.platform_coverage_errors(games)+quality.platform_landmark_errors(games)
+    if source_quality_errors:
+        raise RuntimeError('Source catalogue quality failed: '+'; '.join(source_quality_errors))
+    # Only entries with usable metadata and a small real-world participation
+    # signal shape grids. The browser receives the smaller union of games that
+    # can actually appear in the scheduled intersections, so its answer search
+    # cannot drift away from the answer counts audited below.
     playable_games=quality.playable_games(games)
     if len(playable_games)<4000:raise RuntimeError(f'Playable catalogue too small: {len(playable_games)}')
     all_specs=v2.all_clue_specs(playable_games)
@@ -479,7 +492,7 @@ def main():
     puzzle_game_ids.update(published_game_ids)
     puzzle_games=[game for game in games if game['id'] in puzzle_game_ids]
     catalog_hash=catalogue_hash(games,all_specs)
-    _,build_hash=version_puzzles(puzzles,catalog_hash,{'puzzleGameIds':sorted(puzzle_game_ids)})
+    _,build_hash=version_puzzles(puzzles,catalog_hash,{'puzzleGameIds':sorted(puzzle_game_ids),'publisherAliases':base.KNOWN_PUBLISHER_ALIASES})
     assets=catalogue_assets(build_hash)
     data_asset=assets['dataAsset']
     # Preserve raw-index coverage telemetry separately from the curated counts
@@ -491,11 +504,11 @@ def main():
     details_text='window.GAMEGRID_DETAILS='+json.dumps(details_payload,separators=(',',':'),ensure_ascii=False)+';\n'
     assets['detailsAsset']=details_asset_name(details_text)
     details_hash=content_fingerprint(details_text)
-    meta={'gameCount':len(games),'puzzleGameCount':len(puzzle_games),'playableGameCount':len(playable_games),'clueCount':len(all_specs),'puzzleCount':len(puzzles),'modes':MODES,'source':'PlayMyData (IGDB-derived)','catalogHash':catalog_hash,'buildHash':build_hash,**assets}
+    meta={'gameCount':len(games),'searchableGameCount':len(puzzle_games),'puzzleGameCount':len(puzzle_games),'playableGameCount':len(playable_games),'clueCount':len(all_specs),'puzzleCount':len(puzzles),'modes':MODES,'source':'PlayMyData (IGDB-derived)','catalogHash':catalog_hash,'buildHash':build_hash,**assets}
     puzzle_index=json.dumps(compact_puzzle_index(puzzle_games),separators=(',',':'),ensure_ascii=False)
-    out="window.GAMEGRID_DATA=(()=>{\nconst games="+puzzle_index+".map(([id,title,year,platforms,tags,rating,ratingsCount,developers,publishers,franchise])=>({id,title,year,platforms,tags,rating,ratingsCount,developers,publishers,franchise}));\n"+base.js_clues(all_specs)+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:"+json.dumps(meta,separators=(',',':'))+"};\n})();\n"
+    out="window.GAMEGRID_DATA=(()=>{\nconst games="+puzzle_index+".map(([id,title,year,platforms,tags,rating,ratingsCount,developers,publishers,franchise,publisherAliases])=>({id,title,year,platforms,tags,rating,ratingsCount,developers,publishers,franchise,publisherAliases}));\n"+base.js_clues(all_specs)+"\nconst puzzles="+json.dumps(puzzles,separators=(',',':'))+";\nreturn {games,clues,puzzles,meta:"+json.dumps(meta,separators=(',',':'))+"};\n})();\n"
     open(data_asset,'w',encoding='utf-8').write(out)
-    open(assets['indexAsset'],'w',encoding='utf-8').write('globalThis.GAMEGRID_INDEX='+json.dumps(compact_index(games),separators=(',',':'),ensure_ascii=False)+';\n')
+    open(assets['indexAsset'],'w',encoding='utf-8').write('globalThis.GAMEGRID_INDEX='+json.dumps(compact_index(puzzle_games),separators=(',',':'),ensure_ascii=False)+';\n')
     open(assets['searchAsset'],'w',encoding='utf-8').write(search_worker(assets['indexAsset']))
     open(assets['detailsAsset'],'w',encoding='utf-8').write(details_text)
     sizes=asset_sizes(assets)
@@ -505,7 +518,7 @@ def main():
     # Keep index.html stable while making its parser-blocking data hook load the
     # current manifest and its immutable, fingerprinted payload.
     open('data.js','w',encoding='utf-8').write("document.write('<script src=\"./catalog-manifest.js\"><\\/script><script src=\"./catalog-loader.js\"><\\/script>');\n")
-    report={'games':len(games),'puzzleGameCount':len(puzzle_games),'clues':len(all_specs),'puzzles':len(puzzles),'publishedPuzzlesPreserved':preserved_count,'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'detailsHash':details_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'platformCounts':quality.platform_counts(games)}
+    report={'games':len(games),'searchableGameCount':len(puzzle_games),'puzzleGameCount':len(puzzle_games),'clues':len(all_specs),'puzzles':len(puzzles),'publishedPuzzlesPreserved':preserved_count,'modes':mode_report,'first':START.isoformat(),'last':END.isoformat(),'clueCounts':clue_counts,'playableClueCounts':playable_clue_counts,'selection':'all eligible source records (no popularity cap)','playablePool':quality.playable_pool_report(games),'searchablePool':quality.playable_pool_report(puzzle_games),'essentialBackfill':len(base.ESSENTIAL_GAMES),'catalogHash':catalog_hash,'buildHash':build_hash,'detailsHash':details_hash,**assets,'assetSizes':sizes,'performanceBudgets':PERFORMANCE_BUDGETS,'metadataCoverage':quality.metadata_coverage(games),'searchableMetadataCoverage':quality.metadata_coverage(puzzle_games),'platformCounts':quality.platform_counts(games),'searchablePlatformCounts':quality.platform_counts(puzzle_games)}
     open('catalog-report.json','w').write(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 
