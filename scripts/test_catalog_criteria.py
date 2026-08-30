@@ -39,6 +39,21 @@ class CatalogueCriteriaTests(unittest.TestCase):
         self.assertTrue(catalog_v3.criteria_are_redundant(playstation, ps5))
         self.assertTrue(catalog_v3.criteria_are_redundant(gen8, switch))
 
+    def test_trial_publisher_alias_keeps_last_of_us_part_ii_playable(self):
+        game = {'id': '26192', 'title': 'The Last of Us Part II', 'publishers': [], 'platforms': ['PlayStation 4']}
+        self.assertEqual(catalog.known_publisher_aliases(game), ['Sony Interactive Entertainment'])
+        source = catalog.js_clues([{
+            'id': 'publisherFamily:sony',
+            'label': 'Published by Sony',
+            'kind': 'publisherFamily',
+            'value': 'Sony',
+        }])
+        self.assertIn('g.publisherAliases', source)
+        self.assertEqual(
+            catalog_v3.detail_index([game])['26192']['publishers'],
+            ['Sony Interactive Entertainment'],
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

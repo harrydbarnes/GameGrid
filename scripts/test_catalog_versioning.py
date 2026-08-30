@@ -80,6 +80,11 @@ class CatalogueVersioningTests(unittest.TestCase):
         self.assertIn('importScripts(INDEX_ASSET)', worker)
         self.assertIn("type:'results'", worker)
 
+    def test_search_catalogue_is_the_curated_puzzle_answer_set(self):
+        source = (ROOT / 'scripts' / 'build_catalog_v3.py').read_text(encoding='utf-8')
+        self.assertIn("compact_index(puzzle_games)", source)
+        self.assertIn("'searchableGameCount':len(puzzle_games)", source)
+
     def test_search_order_is_neutral_after_relevance(self):
         worker = catalog.search_worker('index.0123456789abcdef.js')
         self.assertIn('function titleOrder', worker)

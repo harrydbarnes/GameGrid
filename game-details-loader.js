@@ -80,5 +80,5 @@
   // A restored grid has solved cells before the player taps anything. Begin
   // loading its deferred art immediately, then let the details-ready event
   // refresh those cards in place.
-  if (document.querySelector('.cell.solved')) load();
+  if (document.querySelector?.('.cell.solved')) load();
 })();

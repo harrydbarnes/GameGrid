@@ -169,10 +169,12 @@
     const format = () => cards.querySelectorAll('.stat').forEach(card => {
       const label = card.querySelector('span');
       const value = card.querySelector('strong');
-      if (!label || !value || label.textContent.trim() !== 'Games indexed') return;
+      if (!label || !value || !['Games indexed', 'Searchable games'].includes(label.textContent.trim())) return;
       label.textContent = 'Searchable games';
       const number = Number(value.textContent.replace(/,/g, ''));
-      if (Number.isFinite(number)) value.textContent = new Intl.NumberFormat('en-GB').format(number);
+      const searchable = Number(window.GAMEGRID_DATA?.meta?.searchableGameCount);
+      const count = Number.isFinite(searchable) ? searchable : number;
+      if (Number.isFinite(count)) value.textContent = new Intl.NumberFormat('en-GB').format(count);
     });
     format();
     new MutationObserver(format).observe(cards, { childList: true, subtree: true, characterData: true });

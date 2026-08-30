@@ -31,9 +31,9 @@ Changes to the generator or clue rules are used for future dates only. Reworking
 
 GameGrid builds its catalogue from the open PlayMyData research dataset, which is derived from IGDB. The build normalises and deduplicates the source, keeps a broad catalogue rather than a popularity cut-off, and adds a small reviewed backfill for obvious recent releases that a fixed data snapshot can miss.
 
-Before a future grid is published, every one of its nine intersections is checked for valid answers. Standard modes require at least ten valid games per cell, while specialist modes deliberately allow tighter pools. The generator also avoids impossible time combinations and redundant nested clues.
+Before a future grid is published, every one of its nine intersections is checked for valid answers. Standard modes require at least fifteen valid games per cell, giving you room to think without turning every square into a giveaway. Specialist modes deliberately allow tighter pools. The generator also avoids impossible time combinations and redundant nested clues.
 
-The app loads the small puzzle data first. The larger search index warms quietly after the page is ready and is saved on the device by its fingerprint, so repeat visits reuse it until the catalogue changes. Covers and other rich game details stay deferred, helping the first load remain quick. ⚡
+The app loads the small puzzle data first. The answer search contains the curated set of games that can appear in the scheduled intersections, rather than noisy source records that were never counted as puzzle answers. Trial also carries a few reviewed corrections when the upstream snapshot omits a well-known publisher. The search index warms quietly after the page is ready and is saved on the device by its fingerprint, so repeat visits reuse it until the catalogue changes. Covers and other rich game details stay deferred, helping the first load remain quick. ⚡
 
 ## Artwork
 

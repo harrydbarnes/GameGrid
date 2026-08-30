@@ -8,10 +8,11 @@ SOURCES=[
 ('Xbox','https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/all_games_Xbox.csv')]
 GENRES_URL='https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/genres.csv'
 PLATFORMS_URL='https://raw.githubusercontent.com/riccardoRubei/MSR2024-Data-Showcase/main/final_dataset/platforms.csv'
-# Keep the whole upstream catalogue.  The former 6,000-record cut-off silently
-# discarded well-known games with fewer ratings and made the search results
-# depend on an opaque popularity ranking.  GitHub Pages can serve the generated
-# static asset, and the browser needs the full index for an answer to be valid.
+# Keep the whole upstream catalogue for source-quality checks and future puzzle
+# generation. The former 6,000-record cut-off silently discarded well-known
+# games with fewer ratings and made the search results depend on an opaque
+# popularity ranking. The browser search index is reduced later to the audited
+# union of scheduled puzzle answers.
 MAX_GAMES=None
 # This is the first day of the reset public schedule.  Keep it fixed so future
 # catalogue rebuilds preserve the published puzzle numbering.
@@ -216,6 +217,21 @@ def publisher_family(value):
     return ''
 
 
+# The upstream snapshot occasionally omits involved-company metadata for an
+# otherwise well-known title. Keep small, reviewed corrections in the browser
+# bootstrap so Trial does not reject an answer for a missing source field. Do
+# not feed these aliases back into puzzle generation: published answer counts
+# must remain stable when the source snapshot is refreshed.
+KNOWN_PUBLISHER_ALIASES={
+    'the last of us part ii': ('Sony Interactive Entertainment',),
+}
+
+
+def known_publisher_aliases(game):
+    title=re.sub(r'[^a-z0-9]+',' ',str(game.get('title','')).casefold()).strip()
+    return list(KNOWN_PUBLISHER_ALIASES.get(title,()))
+
+
 def trial_specs(games,min_games=3):
     """Build stable maker criteria for Trial from usable catalogue metadata.
 
@@ -312,7 +328,7 @@ def js_clues(specs=None):
         "const clues=Object.fromEntries(clueSpecs.map(s=>[s.id,{label:s.label,test:g=>{const k=s.kind,v=s.value;"
         "if(k==='developer')return (g.developers||[]).includes(v);"
         "if(k==='publisher')return (g.publishers||[]).includes(v);"
-        "if(k==='publisherFamily'){const q=value=>String(value||'').toLowerCase();const family=value=>{const folded=q(value);if(folded.includes('nintendo'))return 'Nintendo';if(folded.includes('sony'))return 'Sony';if(folded.includes('microsoft')||folded.includes('xbox')||folded.includes('bethesda'))return 'Xbox / Microsoft';if(folded.includes('electronic arts'))return 'EA';if(folded.includes('square enix'))return 'Square Enix';if(folded.includes('rockstar'))return 'Rockstar';if(folded.includes('capcom'))return 'Capcom';if(folded.includes('ubisoft'))return 'Ubisoft';if(folded.includes('bandai namco'))return 'Bandai Namco';return ''};return (g.publishers||[]).some(p=>family(p)===v)}"
+        "if(k==='publisherFamily'){const q=value=>String(value||'').toLowerCase();const family=value=>{const folded=q(value);if(folded.includes('nintendo'))return 'Nintendo';if(folded.includes('sony'))return 'Sony';if(folded.includes('microsoft')||folded.includes('xbox')||folded.includes('bethesda'))return 'Xbox / Microsoft';if(folded.includes('electronic arts'))return 'EA';if(folded.includes('square enix'))return 'Square Enix';if(folded.includes('rockstar'))return 'Rockstar';if(folded.includes('capcom'))return 'Capcom';if(folded.includes('ubisoft'))return 'Ubisoft';if(folded.includes('bandai namco'))return 'Bandai Namco';return ''};const publishers=[...(g.publishers||[]),...(g.publisherAliases||[])];return publishers.some(p=>family(p)===v)}"
         "if(k==='franchise')return String(g.franchise||'')===v;"
         "if(k==='platform'){if(v==='PlayStation')return (g.platforms||[]).some(p=>p.startsWith('PlayStation')||['PSP','PS Vita'].includes(p));if(v==='Xbox')return (g.platforms||[]).some(p=>p.startsWith('Xbox'));if(v==='Nintendo')return (g.platforms||[]).some(p=>['Switch','Switch 2','Wii U','Wii','GameCube','Nintendo 64','SNES','NES','Game Boy Advance','Game Boy Color','Game Boy','Nintendo DS','Nintendo 3DS','Nintendo platform'].includes(p));return (g.platforms||[]).includes(v)}"
         "if(k==='platformAny')return (g.platforms||[]).some(p=>v.includes(p));"

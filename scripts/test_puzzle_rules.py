@@ -15,10 +15,10 @@ class PuzzleRuleTests(unittest.TestCase):
         self.assertEqual(puzzles.difficulty_for([8, 30, 90]), 'Medium')
         self.assertEqual(puzzles.difficulty_for([3, 40, 100]), 'Hard')
 
-    def test_standard_modes_keep_at_least_ten_answers_in_every_relaxation_level(self):
+    def test_standard_modes_keep_at_least_fifteen_answers_in_every_relaxation_level(self):
         for mode in puzzles.STANDARD_MODES:
             for level in range(3):
-                self.assertEqual(puzzles.limits(mode, level, 6000)[0], 10)
+                self.assertEqual(puzzles.limits(mode, level, 6000)[0], puzzles.STANDARD_MIN_ANSWERS)
 
     def test_specialist_modes_keep_their_tighter_floor(self):
         self.assertEqual(puzzles.limits('Deep Cut', 0, 6000)[0], 3)

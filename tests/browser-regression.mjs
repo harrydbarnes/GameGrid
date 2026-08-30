@@ -448,6 +448,44 @@ async function modeExplainer(browser, server) {
   await context.close();
 }
 
+async function trialPublisherCorrection(browser, server) {
+  const { context, page } = await boot(browser, server);
+  const trial = page.locator('.mode-tab[data-mode="Trial"]');
+  if (!(await trial.count())) {
+    await context.close();
+    return;
+  }
+  await trial.click();
+  await page.waitForFunction(() => document.querySelector('.mode-tab.active')?.dataset.mode === 'Trial');
+  const candidate = await page.evaluate(() => {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+    const value = type => parts.find(part => part.type === type)?.value;
+    const today = `${value('year')}-${value('month')}-${value('day')}`;
+    const puzzle = window.GAMEGRID_DATA.puzzles
+      .filter(item => item.mode === 'Trial' && item.date <= today)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)) || Number(b.id) - Number(a.id))
+      .find(item => item.rows.includes('publisherFamily:sony') && item.cols.includes('post2015'));
+    if (!puzzle) return null;
+    const row = puzzle.rows.indexOf('publisherFamily:sony');
+    const column = puzzle.cols.indexOf('post2015');
+    const game = window.GAMEGRID_DATA.games.find(item => item.title === 'The Last of Us Part II');
+    return game ? { index: row * 3 + column, title: game.title } : null;
+  });
+  assert.ok(candidate?.title, 'generated Trial catalogue must retain the Sony/post-2015 candidate');
+  assert.equal(candidate.title, 'The Last of Us Part II');
+  await page.locator('#grid .cell.empty').nth(candidate.index).click();
+  await page.locator('#gameSearch').fill('The Last of Us');
+  const result = page.locator('.result').filter({ hasText: candidate.title }).first();
+  await result.waitFor();
+  await result.click();
+  await page.waitForFunction(() => !document.querySelector('#searchDialog')?.open);
+  const cell = page.locator('#grid .cell').nth(candidate.index);
+  await assert.doesNotReject(async () => cell.waitFor({ state: 'visible' }));
+  assert.match(await cell.getAttribute('class'), /solved/);
+  assert.match(await cell.innerText(), /The Last of Us Part II/);
+  await context.close();
+}
+
 async function onboardingWalkthrough(browser, server) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -587,6 +625,7 @@ const tests = [
   ['theme control and mobile header', themeControlAndMobileHeader],
   ['fingerprinted search index cache', fingerprintedSearchIndexCache],
   ['mode explainer', modeExplainer],
+  ['Trial publisher correction', trialPublisherCorrection],
   ['introduction walkthrough', onboardingWalkthrough],
   ['past and future puzzle navigation', puzzleNavigation],
   ['give up and reset split layout', splitActionLayout],

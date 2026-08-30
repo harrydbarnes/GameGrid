@@ -23,11 +23,13 @@
     if (existing) {
       const developers = existing.developers;
       const publishers = existing.publishers;
+      const publisherAliases = existing.publisherAliases;
       Object.assign(existing, game);
       // The compact index deliberately carries empty rich fields. Preserve any
       // developer or publisher data merged by the deferred details loader.
       if (Array.isArray(developers) && developers.length) existing.developers = developers;
       if (Array.isArray(publishers) && publishers.length) existing.publishers = publishers;
+      if (Array.isArray(publisherAliases) && publisherAliases.length) existing.publisherAliases = publisherAliases;
       return existing;
     }
     data.games.push(game);
@@ -132,15 +134,17 @@
 
   window.GameGridSearch = { ensure, query, ready: () => Boolean(worker && readyPromise) };
 
-  // The search index is deliberately much larger than the puzzle bootstrap.
-  // Start it after the game has painted, rather than on the first cell tap, so
-  // opening the answer sheet remains responsive on a mobile connection.
+  // The search index is the curated union of games used by the scheduled
+  // intersections. Start it after the game has painted, rather than on the
+  // first cell tap, so opening the answer sheet remains responsive on mobile.
   function warmInBackground() {
     const warm = () => ensure().catch(() => {});
     if ('requestIdleCallback' in window) window.requestIdleCallback(warm, { timeout: 3000 });
-    else window.setTimeout(warm, 900);
+    else if (typeof window.setTimeout === 'function') window.setTimeout(warm, 900);
+    else if (typeof setTimeout === 'function') setTimeout(warm, 900);
   }
 
   if (document.readyState === 'complete') warmInBackground();
-  else window.addEventListener('load', warmInBackground, { once: true });
+  else if (typeof window.addEventListener === 'function') window.addEventListener('load', warmInBackground, { once: true });
+  else if (typeof setTimeout === 'function') setTimeout(warmInBackground, 900);
 })();
